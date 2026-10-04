@@ -16,7 +16,7 @@ namespace ManagerHelp
     public partial class ManagerHelp : AOPluginEntry
     {
         const string PluginName = "ManagerHelp";
-        private string Version_Number = "2.0.8";
+        private string Version_Number = "2.0.9";
 
         private IPCChannel IPCChannel;
 
@@ -85,7 +85,6 @@ namespace ManagerHelp
                 _settings = new Settings(PluginName);
 
                 _settings.AddVariable("IPCChannel", 2);
-                _settings["IPCChannel"] = 2;
                 _settings.AddVariable("KitNanoPercentageBox", 90);
                 _settings.AddVariable("KitHealthPercentageBox", 90);
 
@@ -177,7 +176,16 @@ namespace ManagerHelp
                 _settings["Db3Shapes"] = uISettings.Db3Shapes;
                 _settings["AutoFence42"] = uISettings.AutoFence42;
 
-                Save();
+                try
+                {
+                    Save();
+                    Chat.WriteLine($"HelpManager: broadcast received and saved; 42 Autofence {(uISettings.AutoFence42 ? "ON" : "OFF")} (channel {_settings["IPCChannel"].AsInt32()}).");
+                }
+                catch (Exception ex)
+                {
+                    Chat.WriteLine("HelpManager: broadcast applied, but saving failed. See Errors.");
+                    ErrorCatch(ex);
+                }
             }
         }
 
@@ -387,8 +395,19 @@ namespace ManagerHelp
                     return;
                 }
 
+                if (newChannel == _settings["IPCChannel"].AsInt32())
+                {
+                    Chat.WriteLine($"IPC Channel already set to: {newChannel}");
+                    return;
+                }
+
+                if (!IPCChannel.SetChannelId(Convert.ToByte(newChannel)))
+                {
+                    Chat.WriteLine($"IPC Channel {newChannel} is already in use by another plugin. Channel unchanged.");
+                    return;
+                }
+
                 _settings["IPCChannel"] = newChannel;
-                IPCChannel.SetChannelId(Convert.ToByte(_settings["IPCChannel"].AsInt32()));
                 Chat.WriteLine($"IPC Channel set to: {_settings["IPCChannel"].AsInt32()}");
                 Save();
             }

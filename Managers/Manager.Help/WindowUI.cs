@@ -103,17 +103,26 @@ namespace ManagerHelp
 
         private void UISettingsButtonClicked(object s, ButtonBase button)
         {
-            IPCChannel.Broadcast(new UISettings()
+            try
             {
-                AutoSit = _settings["AutoSit"].AsBool(),
-                MorphPathing = _settings["MorphPathing"].AsBool(),
-                BellyPathing = _settings["BellyPathing"].AsBool(),
-                Eumenides = _settings["Eumenides"].AsBool(),
-                Db3Shapes = _settings["Db3Shapes"].AsBool(),
-                AutoFence42 = _settings["AutoFence42"].AsBool(),
-            });
-
-            Save();
+                IPCChannel.Broadcast(new UISettings()
+                {
+                    AutoSit = _settings["AutoSit"].AsBool(),
+                    MorphPathing = _settings["MorphPathing"].AsBool(),
+                    BellyPathing = _settings["BellyPathing"].AsBool(),
+                    Eumenides = _settings["Eumenides"].AsBool(),
+                    Db3Shapes = _settings["Db3Shapes"].AsBool(),
+                    AutoFence42 = _settings["AutoFence42"].AsBool(),
+                });
+    
+                Save();
+                Chat.WriteLine($"HelpManager: settings sent on channel {_settings["IPCChannel"].AsInt32()}; 42 Autofence {(_settings["AutoFence42"].AsBool() ? "ON" : "OFF")}. Receiving characters report when saved.");
+            }
+            catch (Exception ex)
+            {
+                Chat.WriteLine("HelpManager: settings broadcast or local save failed. See Errors.");
+                ErrorCatch(ex);
+            }
         }
 
         private void EumenidesView(object s, ButtonBase button)
