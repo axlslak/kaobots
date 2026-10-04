@@ -28,3 +28,5 @@ This is a source import, not a packaged release. No build or test run was perfor
 For Agent raid snaring in Mimic Fixer, select Spin Nanoweb in the Fixer area-snare selection and enable the raid snare option. The ordinary Holds activation need not also be enabled; the raid targeting path excludes unrelated nearby mobs.
 
 Deploy the complete matching output, including `ProfessionHandler.Generic.dll`, the selected profession DLLs and UI assets. See [the upstream setup notes](UPSTREAM-README.md) for its build/deployment guidance. No automated build or release workflow is enabled here.
+
+One unused alternative Sector 13 navigation mesh is stored losslessly compressed; see [its extraction note](Shared/NavMeshes/s13%20mesh/README.md). All project-referenced navigation assets retain their original format.
