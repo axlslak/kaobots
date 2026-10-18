@@ -24,6 +24,8 @@ namespace ProfessionHandler.Generic
 {
     public partial class GenericProfessionHandler : Combat.ProfessionHandler
     {
+        public const float HandlerVersion = 2.45f;
+
         public Dictionary<LocalGroupMessageType, int> ChatChannels = new Dictionary<LocalGroupMessageType, int>();
         public static int ChatChannelId;
         public static byte ChatChannelType;
@@ -274,7 +276,7 @@ namespace ProfessionHandler.Generic
 
                 _wieldedWeapons = GetWieldedWeapons(DynelManager.LocalPlayer);
 
-                _settings.AddVariable("Version_Number", 2.44f);
+                _settings.AddVariable("Version_Number", HandlerVersion);
                 _settings.AddVariable("MAX_CONCURRENT_PERKS", 1);
 
                 #region Handler Settings

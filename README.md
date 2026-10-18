@@ -14,9 +14,9 @@ Credit to **Knowidea / never-knows-best (Know)** and all original contributors. 
 
 ## Versions
 
-- Shared handler settings version: **2.44** (retains the existing numeric format).
-- Profession handler file versions: **1.0.3.0**; assembly identities remain unchanged for compatibility.
-- HelpManager: **2.0.8**.
+- In-game handler and settings version: **2.45**. The footer reports the source revision independently of saved preferences.
+- Profession handler file versions: **1.0.4.0**; assembly identities remain unchanged for compatibility.
+- HelpManager: **2.0.9**.
 - Manager Sync: **2.0.10**.
 
 ## Status and known issues

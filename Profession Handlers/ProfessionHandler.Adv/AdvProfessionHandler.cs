@@ -211,7 +211,7 @@ namespace ProfessionHandler.Adventurer
                     PopulateErrorView(errorView);
 
                 if (_mainWindow.FindView("VersionNumber", out TextView version))
-                    version.Text = $"Version {_settings["Version_Number"].AsFloat()}";
+                    version.Text = "Version " + HandlerVersion.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
                 _mainWindow.Show(true);
 
