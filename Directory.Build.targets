@@ -1,5 +1,27 @@
 <Project>
   <PropertyGroup>
     <OutDir>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutDir>
+    <!-- Explicit inventory of projects with AOSharp plugin entry points; dependencies stay unchanged. -->
+    <AOSharpInjectableAssemblyNames>;Automaton.City;Automaton.DB1;Automaton.DB2;Automaton.Inf;Automaton.KiteHill;Automaton.Mitaar;Automaton.Roamba;Automaton.Vortexx;Manager.Assist;Manager.Attack;Manager.Bag;Manager.Follow;Manager.GMI;Manager.Help;Manager.Inventory;Manager.Loot;Manager.Mail;Manager.OST;Manager.POH;Manager.Pet;Manager.PetHunt;Manager.Raid;Manager.Research;Manager.SocialPet;Manager.Sync;ProfessionHandler.Adv;ProfessionHandler.Agent;ProfessionHandler.Auto;ProfessionHandler.Crat;ProfessionHandler.Doc;ProfessionHandler.Enf;ProfessionHandler.Engi;ProfessionHandler.Fixer;ProfessionHandler.Keeper;ProfessionHandler.MA;ProfessionHandler.MP;ProfessionHandler.NT;ProfessionHandler.Shade;ProfessionHandler.Soldier;ProfessionHandler.Trader;Utility.AOIABankManager;Utility.AutoItemLevel;Utility.BossLogger;Utility.Coffee;Utility.CombineNSplit;Utility.Cookies;Utility.CrystalFilledByTheSource;Utility.DefendTheGrove;Utility.ICE;Utility.InventoryPrinter;Utility.MonsterTracker;Utility.Pearls;Utility.Plasma;Utility.Relay;Utility.SimpleAutoSeller;Utility.TradeskillAndSell;</AOSharpInjectableAssemblyNames>
+    <AOSharpInjectableOutput Condition="$([System.String]::Copy('$(AOSharpInjectableAssemblyNames)').Contains(';$(AssemblyName);'))">true</AOSharpInjectableOutput>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(AOSharpInjectableOutput)' == 'true'">
+    <!-- Keep TargetName, IntermediateAssembly and the compiled assembly identity unchanged. -->
+    <TargetFileName>ADDME-$(AssemblyName).dll</TargetFileName>
+    <TargetDir>$(OutDir)</TargetDir>
+    <TargetPath>$(OutDir)$(TargetFileName)</TargetPath>
+    <CopyBuildOutputToOutputDirectory>false</CopyBuildOutputToOutputDirectory>
+  </PropertyGroup>
+  <Target Name="CopyAddMePluginOutput" AfterTargets="CopyFilesToOutputDirectory"
+          Condition="'$(AOSharpInjectableOutput)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(SkipCopyBuildProduct)' != 'true'">
+    <!-- The normal copy uses the intermediate filename; copy to the final name explicitly instead. -->
+    <Copy SourceFiles="@(IntermediateAssembly)" DestinationFiles="$(TargetPath)"
+          SkipUnchangedFiles="true" OverwriteReadOnlyFiles="$(OverwriteReadOnlyFiles)"
+          Retries="$(CopyRetryCount)" RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)">
+      <Output TaskParameter="DestinationFiles" ItemName="MainAssembly" />
+      <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
+    </Copy>
+    <!-- Remove only this plugin's obsolete generated alias after the prefixed output exists. -->
+    <Delete Files="$(OutDir)$(AssemblyName).dll" Condition="Exists('$(TargetPath)') and Exists('$(OutDir)$(AssemblyName).dll')" />
+  </Target>
 </Project>

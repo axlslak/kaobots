@@ -29,9 +29,9 @@ namespace ProfessionHandler.Auto
             string entryType;
             string module = SelectModule(profession, out entryType);
             _directory = Path.GetFullPath(pluginDir);
-            string path = Path.Combine(_directory, module + ".dll");
+            string path = Path.Combine(_directory, "ADDME-" + module + ".dll");
             if (!File.Exists(path))
-                throw new FileNotFoundException("Auto Handler cannot find " + module + ".dll. Copy the complete matching handler output beside ProfessionHandler.Auto.dll.", path);
+                throw new FileNotFoundException("Auto Handler cannot find ADDME-" + module + ".dll. Copy the complete matching handler output beside ADDME-ProfessionHandler.Auto.dll.", path);
 
             AppDomain.CurrentDomain.AssemblyResolve += ResolveDependency;
             Assembly assembly = Assembly.LoadFrom(path);

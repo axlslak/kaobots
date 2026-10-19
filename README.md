@@ -34,10 +34,17 @@ One unused alternative Sector 13 navigation mesh is stored losslessly compressed
 
 ## Handler (Auto)
 
-Add `ProfessionHandler.Auto.dll` to AOSharp and enable **Handler (Auto)** on each character. It reads the character's real profession once and initializes the matching existing profession handler. Agents keep the Agent handler while mimicking another profession. The normal `/handler` window and per-character handler settings remain in use.
+Add `ADDME-ProfessionHandler.Auto.dll` to AOSharp and enable **Handler (Auto)** on each character. It reads the character's real profession once and initializes the matching existing profession handler. Agents keep the Agent handler while mimicking another profession. The normal `/handler` window and per-character handler settings remain in use.
 
 Keep the complete matching plugin output together: Auto, the profession handler DLLs, Generic, Shared, other dependencies, `UI` and `Bosses.json`. Register only Auto in AOSharp; the other handler DLLs stay beside it. Other managers remain separate selectable plugins. Individual profession plugins remain available for manual selection.
 
 Enable either Auto or one manual profession handler per character. Updated entry points reject a second handler, including Auto/manual combinations in either order. Startup errors collected by the existing handler error path now reach plugin initialization; runtime error reporting keeps its existing behavior. If startup fails, eject/reinject with matching output. Existing full-domain loader cleanup/retry remains responsible for cleanup; there is no live profession switching.
 
 Auto uses the selected handler's original `Init` and `Teardown` lifecycle, including message registration and resource paths. Unsupported professions or missing modules report a startup failure. This adds no new work to the game update loop. The launcher requires no changes. First source version: Auto1.0.0. Source review only; runtime verification pending. No builds/tests/releases performed.
+
+
+## Which DLLs to add
+
+Injectable outputs use `ADDME-<old filename>.dll`, including Auto, individual profession handlers, managers, automatons and utilities. Sort the output folder by name, select the ADDME DLLs as a group, and add/drop them into AOSharp. Registering plugins adds them to the library; choose which ones to enable for each character. Use Auto OR one individual profession handler per character.
+
+Dependencies such as `ProfessionHandler.Generic.dll`, `Shared.dll`, AOSharpSDK and Newtonsoft.Json keep their original filenames. Keep them and the UI/data resources beside the plugins. Internal assembly names and binding versions remain unchanged. Auto loads the prefixed profession modules. Older generated unprefixed plugin DLL aliases are removed when their prefixed output is copied successfully; dependency files are left in place.
