@@ -24,7 +24,7 @@ namespace ProfessionHandler.Generic
 {
     public partial class GenericProfessionHandler : Combat.ProfessionHandler
     {
-        public const float HandlerVersion = 2.45f;
+        public const float HandlerVersion = 2.46f;
 
         public Dictionary<LocalGroupMessageType, int> ChatChannels = new Dictionary<LocalGroupMessageType, int>();
         public static int ChatChannelId;
@@ -3376,6 +3376,7 @@ namespace ProfessionHandler.Generic
 
         public static void ErrorCatch(Exception ex)
         {
+            HandlerStartup.RecordFailure(ex);
             var output = ex.Message + Environment.NewLine + "   at " + ex.TargetSite?.DeclaringType?.FullName + "." + ex.TargetSite?.Name + Environment.NewLine + "   at " + ex.StackTrace;
 
             if (!ErrorMessages.Contains(output))

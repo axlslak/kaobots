@@ -50,6 +50,7 @@
     <Compile Include="Base\ProfessionHandler.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="GenericProfessionHandler.cs" />
+    <Compile Include="HandlerStartup.cs" />
     <Compile Include="GetBehind.cs" />
     <Compile Include="IPCMessages.cs" />
     <Compile Include="ItemPerkProcessors\ItemProcessors.cs" />

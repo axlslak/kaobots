@@ -1,7 +1,4 @@
-﻿using AOSharp.Common.GameData;
-using AOSharp.Core;
-using AOSharp.Core.UI;
-using System;
+﻿using AOSharp.Core;
 
 namespace ProfessionHandler.Enforcer
 {
@@ -9,20 +6,8 @@ namespace ProfessionHandler.Enforcer
     {
         public override void Run()
         {
-            try
-            {
-                if (Game.IsNewEngine)
-                {
-                    Chat.WriteLine("Does not work on this engine!");
-                    return;
-                }
-
-                Generic.Combat.ProfessionHandler.Set(new EnfProfessionHandler(PluginDirectory));
-            }
-            catch (Exception e)
-            {
-                Chat.WriteLine(e.Message);
-            }
+            Generic.HandlerStartup.Start(() =>
+                Generic.Combat.ProfessionHandler.Set(new EnfProfessionHandler(PluginDirectory)));
         }
     }
 }

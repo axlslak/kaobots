@@ -30,3 +30,14 @@ For Agent raid snaring in Mimic Fixer, select Spin Nanoweb in the Fixer area-sna
 Deploy the complete matching output, including `ProfessionHandler.Generic.dll`, the selected profession DLLs and UI assets. See [the upstream setup notes](UPSTREAM-README.md) for its build/deployment guidance. No automated build or release workflow is enabled here.
 
 One unused alternative Sector 13 navigation mesh is stored losslessly compressed; see [its extraction note](Shared/NavMeshes/s13%20mesh/README.md). All project-referenced navigation assets retain their original format.
+
+
+## Handler (Auto)
+
+Add `ProfessionHandler.Auto.dll` to AOSharp and enable **Handler (Auto)** on each character. It reads the character's real profession once and initializes the matching existing profession handler. Agents keep the Agent handler while mimicking another profession. The normal `/handler` window and per-character handler settings remain in use.
+
+Keep the complete matching plugin output together: Auto, the profession handler DLLs, Generic, Shared, other dependencies, `UI` and `Bosses.json`. Register only Auto in AOSharp; the other handler DLLs stay beside it. Other managers remain separate selectable plugins. Individual profession plugins remain available for manual selection.
+
+Enable either Auto or one manual profession handler per character. Updated entry points reject a second handler, including Auto/manual combinations in either order. Startup errors collected by the existing handler error path now reach plugin initialization; runtime error reporting keeps its existing behavior. If startup fails, eject/reinject with matching output. Existing full-domain loader cleanup/retry remains responsible for cleanup; there is no live profession switching.
+
+Auto uses the selected handler's original `Init` and `Teardown` lifecycle, including message registration and resource paths. Unsupported professions or missing modules report a startup failure. This adds no new work to the game update loop. The launcher requires no changes. First source version: Auto1.0.0. Source review only; runtime verification pending. No builds/tests/releases performed.

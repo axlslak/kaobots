@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{BC63B987-0AA9-46DF-B601-813303C98239}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>ProfessionHandler.Auto</RootNamespace>
+    <AssemblyName>ProfessionHandler.Auto</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols><DebugType>full</DebugType><Optimize>false</Optimize>
+    <OutputPath>..\..\bin\Debug\</OutputPath><DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType><Optimize>true</Optimize><OutputPath>..\..\bin\Release\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="AOSharp.Common, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\AOSharpSDK.1.0.106\lib\net48\AOSharp.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="AOSharp.Core, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\AOSharpSDK.1.0.106\lib\net48\AOSharp.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Main.cs" /><Compile Include="Properties\AssemblyInfo.cs" />
+    <None Include="packages.config" />
+    <ProjectReference Include="..\ProfessionHandler.Generic\ProfessionHandler.Generic.csproj">
+      <Project>{8CB8419F-3914-49C1-ABA3-78C5D26E8E48}</Project><Name>ProfessionHandler.Generic</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Adv\ProfessionHandler.Adv.csproj">
+      <Project>{3CA722B1-8974-4621-A98E-01A124296F34}</Project><Name>ProfessionHandler.Adv</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Agent\ProfessionHandler.Agent.csproj">
+      <Project>{99F69611-BE0F-4891-810C-6D1079A3B5BC}</Project><Name>ProfessionHandler.Agent</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Crat\ProfessionHandler.Crat.csproj">
+      <Project>{DE83CAA4-61F0-4D58-8AE1-A1E2F72A4756}</Project><Name>ProfessionHandler.Crat</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Doc\ProfessionHandler.Doc.csproj">
+      <Project>{EB91D777-E2CD-4659-AB18-8556EFE9843F}</Project><Name>ProfessionHandler.Doc</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Enf\ProfessionHandler.Enf.csproj">
+      <Project>{699FBD9A-B45D-4868-867C-CD42DA79FA4B}</Project><Name>ProfessionHandler.Enf</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Engi\ProfessionHandler.Engi.csproj">
+      <Project>{0AD668D3-8956-46F7-A481-4FD8EE696F3F}</Project><Name>ProfessionHandler.Engi</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Fixer\ProfessionHandler.Fixer.csproj">
+      <Project>{7F784C8F-8146-429A-9AFD-B7172D359CAD}</Project><Name>ProfessionHandler.Fixer</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Keeper\ProfessionHandler.Keeper.csproj">
+      <Project>{5BD3F993-A8DE-4214-919E-B50220BC0962}</Project><Name>ProfessionHandler.Keeper</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.MA\ProfessionHandler.MA.csproj">
+      <Project>{9DE96028-B6AB-4E50-8B2D-DA8E547A8724}</Project><Name>ProfessionHandler.MA</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.MP\ProfessionHandler.MP.csproj">
+      <Project>{5A634F35-42FC-493E-8320-29877D9F508D}</Project><Name>ProfessionHandler.MP</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.NT\ProfessionHandler.NT.csproj">
+      <Project>{C6269B50-65B8-4DF1-AC8C-6523841A8CB5}</Project><Name>ProfessionHandler.NT</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Shade\ProfessionHandler.Shade.csproj">
+      <Project>{EEFADB86-E1EB-4608-9FDE-09935465D586}</Project><Name>ProfessionHandler.Shade</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Soldier\ProfessionHandler.Soldier.csproj">
+      <Project>{C428D572-21CF-4415-A33A-03A92913F65C}</Project><Name>ProfessionHandler.Soldier</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\ProfessionHandler.Trader\ProfessionHandler.Trader.csproj">
+      <Project>{CC47644B-AD9F-4E9F-A80F-37F218E3E808}</Project><Name>ProfessionHandler.Trader</Name><ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

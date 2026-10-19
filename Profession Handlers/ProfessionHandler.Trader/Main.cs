@@ -1,6 +1,4 @@
 ﻿using AOSharp.Core;
-using AOSharp.Core.UI;
-using System;
 
 namespace ProfessionHandler.Trader
 {
@@ -8,20 +6,8 @@ namespace ProfessionHandler.Trader
     {
         public override void Run()
         {
-            try
-            {
-                if (Game.IsNewEngine)
-                {
-                    Chat.WriteLine("Does not work on this engine!");
-                    return;
-                }
-
-                Generic.Combat.ProfessionHandler.Set(new TraderProfessionHandler(PluginDirectory));
-            }
-            catch (Exception e)
-            {
-                Chat.WriteLine(e.Message);
-            }
+            Generic.HandlerStartup.Start(() =>
+                Generic.Combat.ProfessionHandler.Set(new TraderProfessionHandler(PluginDirectory)));
         }
     }
 }
