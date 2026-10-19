@@ -230,6 +230,7 @@ namespace ManagerSync
                 Team.Leave();
 
             _settings["OutsideTeamInvites"] = true;
+            Save();
 
             if (settingsWindow?.IsValid == true)
             {
@@ -252,6 +253,7 @@ namespace ManagerSync
         private static void Outside_Team_Invites(object sender, ButtonBase e)
         {
             _settings["OutsideTeamInvites"] = !_settings["OutsideTeamInvites"].AsBool();
+            Save();
 
             if (settingsWindow?.IsValid == true)
             {

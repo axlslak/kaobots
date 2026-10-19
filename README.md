@@ -10,14 +10,14 @@ Credit to **Knowidea / never-knows-best (Know)** and all original contributors. 
 - **Agent snare-perk controls:** Tranquilizer appears in Holds; disabled Tranquilizer and Soften Up actions are removed from the pending queue. Already submitted actions cannot be recalled.
 - **Pet Commands for every profession:** control pet owners on the same IPC channel from a leader such as Keeper.
 - **HelpManager 42 Autofence:** optional per-character attempts to use a nearby Biological Transceiver until its protection buff is present. Requires 10 free NCU; delays attempts while busy and stops attempting when the object is absent or out of range. It does not navigate or manage pet movement.
-- **Manager Sync:** stop repeated syncbag scans after a scheduled pass; preserve reopening after zoning. Give OnUpdate work a nonblocking one-second startup grace period.
+- **Manager Sync:** stop repeated syncbag scans after a scheduled pass; preserve reopening after zoning. Give OnUpdate work a nonblocking one-second startup grace period. Remember the saved outside team invite preference across loads; save invite state changes immediately.
 
 ## Versions
 
 - In-game handler and settings version: **2.45**. The footer reports the source revision independently of saved preferences.
 - Profession handler file versions: **1.0.4.0**; assembly identities remain unchanged for compatibility.
 - HelpManager: **2.0.9**.
-- Manager Sync: **2.0.10**.
+- Manager Sync: **2.0.12**.
 
 ## Status and known issues
 

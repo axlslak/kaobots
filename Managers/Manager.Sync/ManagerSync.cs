@@ -22,7 +22,7 @@ namespace ManagerSync
     {
         public const string PluginName = "ManagerSync";
 
-        public static string Version_Number = "Version = 2.0.10";
+        public static string Version_Number = "Version = 2.0.12";
 
         public static IPCChannel _IPCChannel;
 
@@ -93,7 +93,6 @@ namespace ManagerSync
                 _settings.AddVariable("BSSideSelection", 0);
 
                 _settings.AddVariable("OutsideTeamInvites", false);
-                _settings["OutsideTeamInvites"] = false;
 
                 _settings.AddVariable("MainWindowTopLeftX", 50f);
                 _settings.AddVariable("MainWindowTopLeftY", 50f);

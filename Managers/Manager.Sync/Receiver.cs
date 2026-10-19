@@ -483,6 +483,7 @@ namespace ManagerSync
             var invite = (OutsideInvitesIPCMessage)message;
 
             _settings["OutsideTeamInvites"] = invite.Invites;
+            Save();
 
             if (settingsWindow?.IsValid == true)
             {
@@ -626,6 +627,7 @@ namespace ManagerSync
                 Team.Leave();
 
             _settings["OutsideTeamInvites"] = true;
+            Save();
 
             if (settingsWindow?.IsValid == true)
             {
