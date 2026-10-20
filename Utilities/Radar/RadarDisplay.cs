@@ -75,7 +75,8 @@ namespace Radar
             Dynel selected = null;
             foreach (var entity in DynelManager.AllDynels)
             {
-                if (entity.Identity == localIdentity || !_entities.Contains(entity.Identity) || !entity.IsValid)
+                if (entity.Identity == localIdentity ||
+                    (entity.Identity != selectedEntity && !_entities.Contains(entity.Identity)) || !entity.IsValid)
                     continue;
                 if (entity.Identity == selectedEntity)
                     selected = entity;
