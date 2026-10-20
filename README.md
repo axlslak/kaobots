@@ -48,3 +48,24 @@ Auto uses the selected handler's original `Init` and `Teardown` lifecycle, inclu
 Injectable outputs use `ADDME-<old filename>.dll`, including Auto, individual profession handlers, managers, automatons and utilities. Sort the output folder by name, select the ADDME DLLs as a group, and add/drop them into AOSharp. Registering plugins adds them to the library; choose which ones to enable for each character. Use Auto OR one individual profession handler per character.
 
 Dependencies such as `ProfessionHandler.Generic.dll`, `Shared.dll`, AOSharpSDK and Newtonsoft.Json keep their original filenames. Keep them and the UI/data resources beside the plugins. Internal assembly names and binding versions remain unchanged. Auto loads the prefixed profession modules. Older generated unprefixed plugin DLL aliases are removed when their prefixed output is copied successfully; dependency files are left in place.
+
+
+## Radar
+
+Radar **1.0.11** is a local vicinity HUD for one character, with no IPC. Build `Utility.Radar` in the solution and add `ADDME-Utility.Radar.dll` to AOSharp. Keep the matching output dependencies and `UI/RadarProfessions.xml` and `UI/RadarPlayers.xml` beside the plugin. It uses AOSharpSDK 1.0.106 and targets .NET Framework 4.8/x86.
+
+The transparent profession menu shows **All (total)** and a count for every profession, including zero. It starts with no category selected. Click a category to show its players; click it again to clear it. Names show **(level/AI level)**, sorted by highest level, then highest AI level, with alphabetical ties. The names column follows the selected profession row and stays hidden with no selection. Unknown levels show **?**. Profession information is requested gradually without selecting people or opening Info windows.
+
+The centre radar keeps your blue arrow pointing up and rotates the field with your character's facing. Five white rings mark **20, 40, 60, 80 and 100 horizontal metres**, with rotating compass positions. Matching players are yellow heading arrows; the selected player is red. The complete radar occupies about half the screen height, with a 500-pixel outer circle at 1080p. Only players already loaded by your client are available; 100 metres is a display scale, not a guaranteed discovery distance.
+
+Click a name to mark that player with a red circle and direction line; click it again to clear. Two centred world-space readouts sit **above the circle**: red **current HP / maximum HP**, with blue **current nano / maximum nano** beneath it. The line-drawn digits face the camera and scale naturally with distance. They have no background. This marks the player's location; it does not recolour the body model or change AO's current target.
+
+Resource values come from the client cache. Invalid values show **?**; the remote maximum-nano placeholder 10 is also treated as unknown. No freshness guarantee is provided. Native debug drawings follow the client's visibility behaviour. The renderer assumes the normal full-display game viewport.
+
+- `/radar` toggles the HUD.
+- `/radar on` enables it.
+- `/radar off` disables it.
+
+Counts and lists refresh every 250 ms; positions, headings and selected-player readouts update each game frame. Selection clears when the player leaves the list, the category is cleared, Radar is turned off or you zone. The category choice, including no selection, persists for the current injection. The old `UI/Radar.xml` counter template is retained but unused.
+
+The native drawing approach was informed by [Mali's Dungeon Map](https://github.com/MalishadeAO/malis-dungeon-map-2.0) the [aorust native GUI and rendering notes](https://github.com/reiserFSs/aorust), and [ao-vk's native renderer reconstruction](https://github.com/wannabuh/ao-vk). This is a source addition; no build, test run or packaged release was produced for this copy.

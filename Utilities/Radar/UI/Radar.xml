@@ -1,0 +1,7 @@
+<?xml version="1.0" standalone="yes"?>
+<root>
+  <View min_size="Point(220,24)" max_size="Point(220,24)" view_layout="horizontal">
+    <TextView name="RadarCount" min_size="Point(220,24)" font="BOLD"
+              color="0x00FFFFFF" feature_flags="TVF_RENDER_SHADOW" />
+  </View>
+</root>
