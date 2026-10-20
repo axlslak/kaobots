@@ -37,14 +37,14 @@ namespace Radar
         }
 
         public void Draw(Vector2 screen, Identity localIdentity, Vector3 localPosition,
-            Vector3 localForward, Identity selectedEntity)
+            Vector3 localForward, Identity selectedEntity, RadarViewport viewport, RadarEditor editor)
         {
             if (!Finite(screen.X) || !Finite(screen.Y) || screen.X <= 0 || screen.Y <= 0)
                 return;
 
-            // Reserve 50% of the height for the complete radar, including the
-            // outside letters. At 1080p the outer circle is 500 pixels across.
-            float radius = Math.Min(screen.Y * 0.25f - 20, screen.X * 0.5f - 20);
+            // The default still reserves half the screen height, including the
+            // compass. Editing changes the display footprint, never the 100m range.
+            float radius = viewport.Size * 0.5f - 20;
             if (radius < 20 || !_lines.Begin(screen))
                 return;
 
@@ -54,7 +54,7 @@ namespace Radar
                 _forwardX = fx;
                 _forwardZ = fz;
             }
-            float cx = screen.X * 0.5f, cy = screen.Y * 0.5f;
+            float cx = viewport.CenterX, cy = viewport.CenterY;
             for (int ring = 1; ring <= 5; ring++)
             {
                 float r = radius * ring / 5;
@@ -88,6 +88,68 @@ namespace Radar
 
             // Draw self last: always blue, central and pointing straight up.
             Arrow(cx, cy, 0, -1, Blue);
+            if (editor != null && editor.Visible)
+                EditingChrome(editor);
+        }
+
+        private void EditingChrome(RadarEditor editor)
+        {
+            // Native AO chrome owns the actual title/edge hit regions. These
+            // layered brackets and grip marks reinforce that frame visually.
+            Rect frame = editor.Frame;
+            float x = frame.MinX, y = frame.MinY, right = frame.MaxX, bottom = frame.MaxY;
+            float reveal = editor.Opacity;
+            if (reveal <= 0.025f)
+                return;
+            reveal = reveal * reveal * (3 - 2 * reveal);
+            Vector3 accent = (editor.Moving || editor.Resizing ?
+                new Vector3(1, 0.81f, 0.53f) : new Vector3(0.40f, 0.87f, 0.92f));
+            Vector3 shadow = new Vector3(0.015f, 0.025f, 0.035f);
+            Vector3 soft = new Vector3(0.19f, 0.35f, 0.40f);
+
+            // A dark under-stroke keeps the bright edge legible on both sky and
+            // buildings. Broad open corners avoid the single-line-box appearance.
+            FrameCorner(x, y, 1, 1, reveal, shadow, accent);
+            FrameCorner(right, y, -1, 1, reveal, shadow, accent);
+            FrameCorner(x, bottom, 1, -1, reveal, shadow, accent);
+            FrameCorner(right, bottom, -1, -1, reveal, shadow, accent);
+            if (reveal < 0.65f)
+                return;
+            _lines.Line(x + 34, y + 1, right - 34, y + 1, soft);
+            _lines.Line(x + 34, bottom - 1, right - 34, bottom - 1, soft);
+            _lines.Line(x + 1, y + 34, x + 1, bottom - 34, soft);
+            _lines.Line(right - 1, y + 34, right - 1, bottom - 34, soft);
+
+            // Visible edge-centre grips and lower-right diagonal hatching.
+            float midX = (x + right) * 0.5f, midY = (y + bottom) * 0.5f;
+            for (int offset = -2; offset <= 2; offset++)
+            {
+                _lines.Line(x + offset, midY - 12, x + offset, midY + 12, accent);
+                _lines.Line(right + offset, midY - 12, right + offset, midY + 12, accent);
+                _lines.Line(midX - 12, bottom + offset, midX + 12, bottom + offset, accent);
+            }
+            for (int inset = 8; inset <= 22; inset += 7)
+                _lines.Line(right - inset, bottom - 4, right - 4, bottom - inset, accent);
+
+        }
+
+        private void FrameCorner(float x, float y, float dx, float dy, float reveal, Vector3 shadow, Vector3 accent)
+        {
+            float length = 6 + 24 * reveal;
+            for (int thickness = -1; thickness <= 4; thickness++)
+            {
+                _lines.Line(x - dx, y + thickness * dy, x + length * dx, y + thickness * dy, shadow);
+                _lines.Line(x + thickness * dx, y - dy, x + thickness * dx, y + length * dy, shadow);
+            }
+            for (int thickness = 0; thickness < 3; thickness++)
+            {
+                _lines.Line(x + 2 * dx, y + thickness * dy, x + (length - 3) * dx, y + thickness * dy, accent);
+                _lines.Line(x + thickness * dx, y + 2 * dy, x + thickness * dx, y + (length - 3) * dy, accent);
+            }
+            if (reveal < 0.75f)
+                return;
+            _lines.Line(x + 7 * dx, y + 7 * dy, x + 13 * dx, y + 7 * dy, accent);
+            _lines.Line(x + 7 * dx, y + 7 * dy, x + 7 * dx, y + 13 * dy, accent);
         }
 
         private void Entity(Dynel entity, Vector3 local, float cx, float cy, float radius, Vector3 color)

@@ -37,6 +37,8 @@ namespace Radar
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private readonly ProfessionResolver _professions = new ProfessionResolver();
         private readonly RadarDisplay _radar = new RadarDisplay();
+        private readonly RadarLayout _layout = new RadarLayout();
+        private RadarEditor _editor;
         private readonly SelectedPlayerLabels _selectedLabels = new SelectedPlayerLabels();
         private readonly TextView[] _selectionMarkers = new TextView[CategoryCount];
         private readonly TextView[] _professionCounts = new TextView[CategoryCount];
@@ -69,6 +71,7 @@ namespace Radar
 
         public override void Run()
         {
+            _editor = new RadarEditor(PluginDirectory, _layout);
             _professionPanel = CreatePanel("RadarProfessions", "RadarProfessions.xml", true, BindProfessions);
             _playerPanel = CreatePanel("RadarPlayers", "RadarPlayers.xml", true, BindPlayers);
 
@@ -76,7 +79,7 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.14 loaded. /radar toggles; list selection follows AO's selected target in both directions.");
+            Chat.WriteLine("Radar 1.0.15 loaded. /radar toggles; /radar edit opens the layout editor.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -167,6 +170,32 @@ namespace Radar
             if (_disposed)
                 return;
 
+            if (args.Length == 1)
+            {
+                RadarEditorAction action;
+                if (string.Equals(args[0], "edit", StringComparison.OrdinalIgnoreCase))
+                    action = RadarEditorAction.Edit;
+                else if (string.Equals(args[0], "lock", StringComparison.OrdinalIgnoreCase))
+                    action = RadarEditorAction.Lock;
+                else if (string.Equals(args[0], "reset", StringComparison.OrdinalIgnoreCase))
+                    action = RadarEditorAction.Reset;
+                else if (string.Equals(args[0], "cancel", StringComparison.OrdinalIgnoreCase))
+                    action = RadarEditorAction.Cancel;
+                else
+                    action = RadarEditorAction.None;
+                if (action != RadarEditorAction.None)
+                {
+                    if (action == RadarEditorAction.Edit)
+                    {
+                        _enabled = true;
+                        _nextRefresh = 0;
+                    }
+                    if (_enabled)
+                        _editor.Request(action);
+                    return;
+                }
+            }
+
             bool enabled;
             if (args.Length == 0)
                 enabled = !_enabled;
@@ -176,7 +205,7 @@ namespace Radar
                 enabled = false;
             else
             {
-                Chat.WriteLine("Usage: /radar, /radar on, /radar off");
+                Chat.WriteLine("Usage: /radar [on|off|edit|lock|reset|cancel]");
                 return;
             }
 
@@ -215,6 +244,7 @@ namespace Radar
                     return;
                 }
 
+                UpdateEditor(localPlayer.Identity);
                 UpdateTargetSelection(localPlayer.Identity);
 
                 if (_clock.ElapsedMilliseconds >= _nextRefresh)
@@ -231,6 +261,32 @@ namespace Radar
             {
                 DisableAfterError(ex);
             }
+        }
+
+        private void UpdateEditor(Identity character)
+        {
+            Vector2 screen = Window.GetScreenSize();
+            if (!RadarLayout.Finite(screen.X) || !RadarLayout.Finite(screen.Y) || screen.X <= 0 || screen.Y <= 0)
+                return;
+            EnsureLayout(character);
+            try
+            {
+                _editor.Update(screen, _clock.ElapsedMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                // A missing editor export/UI file must not take away the
+                // already working radar, name lists or selected target marker.
+                _editor.Stop(false);
+                Chat.WriteLine("Radar: layout editor unavailable; the radar itself is unchanged. " + ex.Message);
+            }
+        }
+
+        private void EnsureLayout(Identity character)
+        {
+            string warning = _layout.Load(character);
+            if (warning != null)
+                Chat.WriteLine(warning);
         }
 
         private void UpdateTargetSelection(Identity localIdentity)
@@ -313,6 +369,8 @@ namespace Radar
             Vector2 screen = Window.GetScreenSize();
             if (screen.X <= 0 || screen.Y <= 0)
                 return;
+
+            EnsureLayout(localPlayer.Identity);
 
             if (!_professionPanel.EnsureCreated())
                 return;
@@ -583,8 +641,9 @@ namespace Radar
                 var localPlayer = DynelManager.LocalPlayer;
                 if (localPlayer == null || !localPlayer.IsValid)
                     return;
-                _radar.Draw(Window.GetScreenSize(), localPlayer.Identity,
-                    localPlayer.GlobalPosition, localPlayer.Forward, _selectedEntity);
+                Vector2 screen = Window.GetScreenSize();
+                _radar.Draw(screen, localPlayer.Identity,
+                    localPlayer.GlobalPosition, localPlayer.Forward, _selectedEntity, _editor.GetViewport(screen), _editor);
             }
             catch (Exception ex)
             {
@@ -648,6 +707,7 @@ namespace Radar
 
         private void CloseOverlay()
         {
+            _editor?.Stop(true);
             _radar.Clear();
             _professionPanel?.Close();
             _playerPanel?.Close();

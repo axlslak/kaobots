@@ -44,10 +44,15 @@
   <ItemGroup>
     <Compile Include="Radar.cs" />
     <Compile Include="RadarDisplay.cs" />
+    <Compile Include="RadarLayout.cs" />
+    <Compile Include="RadarEditor.cs" />
     <Compile Include="RadarEntity.cs" />
     <Compile Include="SelectedPlayerLabels.cs" />
     <Compile Include="ProfessionResolver.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Content Include="UI\RadarEditor.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="UI\Radar.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
