@@ -23,6 +23,15 @@
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
+          <TextButton name="Profession17" text="Pets" font="SMALL"
+                      color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
+                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+          <TextView name="ProfessionCount17" value=" (0)" font="SMALL" color="0x00FFFFFF"
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+          <TextView name="Selected17" font="SMALL" color="0x00FFFFFF"
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+        </View>
+        <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession1" text="Adventurer" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
                       min_size="Point(-1,13)" max_size="Point(16000,13)" />

@@ -4,7 +4,7 @@ using AOSharp.Core;
 
 namespace Radar
 {
-    internal enum RadarEntityKind { Player, Npc, Other }
+    internal enum RadarEntityKind { Player, Npc, Other, Pet }
 
     // A display snapshot, never a retained native dynel wrapper.
     internal sealed class RadarEntity
@@ -66,7 +66,12 @@ namespace Radar
             // arbitrary door, terminal, corpse or other non-character dynel.
             if (dynel.Identity.Type != IdentityType.SimpleChar)
                 return RadarEntityKind.Other;
-            return new SimpleChar(dynel).IsPlayer ? RadarEntityKind.Player : RadarEntityKind.Npc;
+            var character = new SimpleChar(dynel);
+            if (character.IsPlayer)
+                return RadarEntityKind.Player;
+            // Use the engine's positive pet flag, even if its owner is not
+            // currently loaded. PetOwnerId alone does not establish ownership.
+            return character.IsPet ? RadarEntityKind.Pet : RadarEntityKind.Npc;
         }
 
         public static string ReadHealth(Dynel dynel)

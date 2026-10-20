@@ -27,11 +27,12 @@ namespace Radar
             Profession.NanoTechnician, Profession.Shade, Profession.Soldier, Profession.Trader
         };
 
-        // Keep existing profession control IDs stable. XML inserts NPCs after
+        // Keep existing control IDs stable. XML inserts NPCs and Pets after
         // All and appends Others; IDs and visible row positions are distinct.
         private static readonly int NpcCategory = Professions.Length;
         private static readonly int OtherCategory = Professions.Length + 1;
-        private static readonly int CategoryCount = Professions.Length + 2;
+        private static readonly int PetCategory = Professions.Length + 2;
+        private static readonly int CategoryCount = Professions.Length + 3;
 
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private readonly ProfessionResolver _professions = new ProfessionResolver();
@@ -75,7 +76,7 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.13 loaded. /radar toggles; list selection follows AO's selected target in both directions.");
+            Chat.WriteLine("Radar 1.0.14 loaded. /radar toggles; list selection follows AO's selected target in both directions.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -284,6 +285,8 @@ namespace Radar
             RadarEntityKind kind = RadarEntity.KindOf(target);
             if (kind == RadarEntityKind.Npc)
                 _selectedCategory = NpcCategory;
+            else if (kind == RadarEntityKind.Pet)
+                _selectedCategory = PetCategory;
             else if (kind == RadarEntityKind.Other)
                 _selectedCategory = OtherCategory;
             else
@@ -319,7 +322,7 @@ namespace Radar
             var entities = new List<RadarEntity>();
             var seen = new HashSet<Identity>();
             _professions.BeginRefresh();
-            // NPC/object details are optional during capture. Choose their
+            // Non-player details are optional during capture. Choose their
             // category first, so this very snapshot already has complete rows.
             FollowTargetCategory();
             foreach (var dynel in DynelManager.AllDynels)
@@ -333,6 +336,7 @@ namespace Radar
                     profession = _professions.Observe(dynel.Identity, new SimpleChar(dynel).Profession);
                 bool details = kind == RadarEntityKind.Player ||
                     (kind == RadarEntityKind.Npc && _selectedCategory == NpcCategory) ||
+                    (kind == RadarEntityKind.Pet && _selectedCategory == PetCategory) ||
                     (kind == RadarEntityKind.Other && _selectedCategory == OtherCategory);
                 entities.Add(new RadarEntity(dynel, kind, profession, details));
             }
@@ -411,6 +415,8 @@ namespace Radar
         {
             if (category == NpcCategory)
                 return entity.Kind == RadarEntityKind.Npc;
+            if (category == PetCategory)
+                return entity.Kind == RadarEntityKind.Pet;
             if (category == OtherCategory)
                 return entity.Kind == RadarEntityKind.Other;
             return category >= 0 && category < Professions.Length &&
@@ -422,9 +428,11 @@ namespace Radar
         {
             if (category == NpcCategory)
                 return 1;
+            if (category == PetCategory)
+                return 2;
             if (category == OtherCategory)
                 return CategoryCount - 1;
-            return category == 0 ? 0 : category + 1;
+            return category == 0 ? 0 : category + 2;
         }
 
         private void RefreshProfessionCounts(List<RadarEntity> players)
