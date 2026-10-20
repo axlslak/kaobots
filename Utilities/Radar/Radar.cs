@@ -15,7 +15,7 @@ namespace Radar
     public class RadarPlugin : AOPluginEntry
     {
         private const int RefreshMilliseconds = 250;
-        private const int NoProfessionSelection = -1;
+        private const int NoCategorySelection = -1;
         private const float ColumnGap = 4;
         private const float ScreenMargin = 8;
         private const float ScrollbarWidth = 11;
@@ -27,14 +27,22 @@ namespace Radar
             Profession.NanoTechnician, Profession.Shade, Profession.Soldier, Profession.Trader
         };
 
+        // Keep existing profession control IDs stable. XML inserts NPCs after
+        // All and appends Others; IDs and visible row positions are distinct.
+        private static readonly int NpcCategory = Professions.Length;
+        private static readonly int OtherCategory = Professions.Length + 1;
+        private static readonly int CategoryCount = Professions.Length + 2;
+
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private readonly ProfessionResolver _professions = new ProfessionResolver();
         private readonly RadarDisplay _radar = new RadarDisplay();
         private readonly SelectedPlayerLabels _selectedLabels = new SelectedPlayerLabels();
-        private readonly TextView[] _selectionMarkers = new TextView[Professions.Length];
-        private readonly TextView[] _professionCounts = new TextView[Professions.Length];
-        private readonly int[] _lastProfessionCounts = new int[Professions.Length];
-        private List<PlayerSnapshot> _playersToShow = new List<PlayerSnapshot>();
+        private readonly TextView[] _selectionMarkers = new TextView[CategoryCount];
+        private readonly TextView[] _professionCounts = new TextView[CategoryCount];
+        private readonly int[] _lastProfessionCounts = new int[CategoryCount];
+        private List<RadarEntity> _entitiesToShow = new List<RadarEntity>();
+        private TextView[] _entityHealth = new TextView[0];
+        private string[] _lastEntityHealth = new string[0];
         private HudPanel _professionPanel;
         private HudPanel _playerPanel;
         private View _professionContent;
@@ -47,13 +55,13 @@ namespace Radar
         private bool _disposed;
         private bool _radarDrawingUnavailable;
         private bool _selectedLabelsUnavailable;
-        private int _selectedProfession = NoProfessionSelection;
+        private int _selectedCategory = NoCategorySelection;
         private int _lastSelection = int.MinValue;
         private string _lastNames;
         private long _nextRefresh;
-        private Identity _selectedPlayer = Identity.None;
-        private Identity _pendingPlayer = Identity.None;
-        private bool _hasPendingPlayer;
+        private Identity _selectedEntity = Identity.None;
+        private Identity _pendingEntity = Identity.None;
+        private bool _hasPendingEntity;
 
         public override void Run()
         {
@@ -64,7 +72,7 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.11 loaded. /radar toggles; click a category to show players, again to hide them.");
+            Chat.WriteLine("Radar 1.0.12 loaded. /radar toggles; click a category to show its list, again to hide it.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -82,7 +90,7 @@ namespace Radar
                 !window.FindView("ProfessionContent", out _professionContent))
                 throw new InvalidOperationException("Could not find Radar's profession column.");
 
-            for (int i = 0; i < Professions.Length; i++)
+            for (int i = 0; i < CategoryCount; i++)
             {
                 ButtonBase button;
                 if (!window.FindView("Profession" + i, out button) ||
@@ -105,13 +113,18 @@ namespace Radar
             if (!window.FindView("PlayerScroll", out _playerScroll) ||
                 !window.FindView("PlayerContent", out _playerContent))
                 throw new InvalidOperationException("Could not find Radar's player column.");
-            for (int i = 0; i < _playersToShow.Count; i++)
+            _entityHealth = new TextView[_entitiesToShow.Count];
+            _lastEntityHealth = new string[_entitiesToShow.Count];
+            for (int i = 0; i < _entitiesToShow.Count; i++)
             {
                 ButtonBase button;
                 if (!window.FindView("Player" + i, out button))
                     throw new InvalidOperationException("Could not find a Radar player choice.");
-                button.Tag = _playersToShow[i].Identity;
+                button.Tag = _entitiesToShow[i].Identity;
                 button.Clicked = OnPlayerClicked;
+                if (_entitiesToShow[i].Kind != RadarEntityKind.Player &&
+                    !window.FindView("EntityHealth" + i, out _entityHealth[i]))
+                    throw new InvalidOperationException("Could not find a Radar health field.");
             }
 
             // The complete tree is loaded before it is attached to the window,
@@ -121,12 +134,12 @@ namespace Radar
 
         private void OnPlayerClicked(object sender, ButtonBase button)
         {
-            if (_disposed || !_enabled || _selectedProfession == NoProfessionSelection)
+            if (_disposed || !_enabled || _selectedCategory == NoCategorySelection)
                 return;
 
             // Defer native UI changes until the click callback has returned.
-            _pendingPlayer = (Identity)button.Tag;
-            _hasPendingPlayer = true;
+            _pendingEntity = (Identity)button.Tag;
+            _hasPendingEntity = true;
         }
 
         private void OnProfessionClicked(object sender, ButtonBase button)
@@ -135,7 +148,7 @@ namespace Radar
                 return;
 
             int profession = (int)button.Tag;
-            _selectedProfession = profession == _selectedProfession ? NoProfessionSelection : profession;
+            _selectedCategory = profession == _selectedCategory ? NoCategorySelection : profession;
             // Refresh on the next update, after the native click has finished.
             _nextRefresh = 0;
         }
@@ -166,7 +179,7 @@ namespace Radar
                     RefreshOverlay();
                 else
                 {
-                    ClearPlayerSelection();
+                    ClearEntitySelection();
                     _professions.Clear();
                     CloseOverlay();
                 }
@@ -186,10 +199,10 @@ namespace Radar
 
             try
             {
-                if (_hasPendingPlayer)
+                if (_hasPendingEntity)
                 {
-                    _selectedPlayer = _pendingPlayer == _selectedPlayer ? Identity.None : _pendingPlayer;
-                    _hasPendingPlayer = false;
+                    _selectedEntity = _pendingEntity == _selectedEntity ? Identity.None : _pendingEntity;
+                    _hasPendingEntity = false;
                     _nextRefresh = 0;
                 }
 
@@ -200,7 +213,7 @@ namespace Radar
                 }
 
                 // Qubit draws on every update, independently of its roster refresh.
-                DrawSelectedPlayer();
+                DrawSelectedEntity();
                 DrawCentreRadar();
             }
             catch (Exception ex)
@@ -214,7 +227,7 @@ namespace Radar
             var localPlayer = DynelManager.LocalPlayer;
             if (Game.IsZoning || localPlayer == null)
             {
-                ClearPlayerSelection();
+                ClearEntitySelection();
                 _professions.Clear();
                 CloseOverlay();
                 return;
@@ -227,61 +240,75 @@ namespace Radar
             if (!_professionPanel.EnsureCreated())
                 return;
 
-            // Keep display data separate from live dynel wrappers.
-            var players = new List<PlayerSnapshot>();
+            // Keep display data separate from live dynel wrappers. Only
+            // players go through profession resolution and its InfoRequests.
+            var entities = new List<RadarEntity>();
+            var seen = new HashSet<Identity>();
             _professions.BeginRefresh();
-            foreach (var player in DynelManager.Players)
+            foreach (var dynel in DynelManager.AllDynels)
             {
-                if (player.Identity != localPlayer.Identity)
-                    players.Add(new PlayerSnapshot(player.Identity, player.Name,
-                        _professions.Observe(player.Identity, player.Profession),
-                        player.Level, player.GetStat(Stat.AlienLevel)));
+                if (dynel.Identity == localPlayer.Identity || !seen.Add(dynel.Identity))
+                    continue;
+
+                RadarEntityKind kind = RadarEntity.KindOf(dynel);
+                Profession profession = default(Profession);
+                if (kind == RadarEntityKind.Player)
+                    profession = _professions.Observe(dynel.Identity, new SimpleChar(dynel).Profession);
+                bool details = kind == RadarEntityKind.Player ||
+                    (kind == RadarEntityKind.Npc && _selectedCategory == NpcCategory) ||
+                    (kind == RadarEntityKind.Other && _selectedCategory == OtherCategory);
+                entities.Add(new RadarEntity(dynel, kind, profession, details));
             }
             _professions.EndRefresh(_clock.ElapsedMilliseconds);
 
-            RefreshProfessionCounts(players);
+            RefreshProfessionCounts(entities);
 
-            bool hasSelectedProfession = _selectedProfession != NoProfessionSelection;
-            Profession? profession = hasSelectedProfession ? Professions[_selectedProfession] : null;
-            var visiblePlayers = players
-                .Where(player => hasSelectedProfession && (!profession.HasValue || player.Profession == profession.Value))
-                .OrderByDescending(player => player.Level)
-                .ThenByDescending(player => player.AILevel)
-                .ThenBy(player => player.Name, StringComparer.OrdinalIgnoreCase)
+            bool hasSelectedCategory = _selectedCategory != NoCategorySelection;
+            var visibleEntities = entities
+                .Where(entity => MatchesCategory(entity, _selectedCategory))
+                .OrderByDescending(entity => entity.Level)
+                .ThenByDescending(entity => entity.AILevel)
+                .ThenBy(entity => entity.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entity => entity.Identity.Type)
+                .ThenBy(entity => entity.Identity.Instance)
                 .ToList();
-            if (_selectedPlayer != Identity.None && !visiblePlayers.Any(player => player.Identity == _selectedPlayer))
-                ClearPlayerSelection();
-            _radar.SetPlayers(visiblePlayers.Select(player => player.Identity));
+            if (_selectedEntity != Identity.None && !visibleEntities.Any(entity => entity.Identity == _selectedEntity))
+                ClearEntitySelection();
+            _radar.SetEntities(visibleEntities.Select(entity => entity.Identity));
 
             bool playersReady = false;
-            if (hasSelectedProfession)
+            if (hasSelectedCategory)
             {
-                string names = _selectedPlayer + "\n" +
-                    string.Join("\n", visiblePlayers.Select(player => player.Identity + ":" + player.Label));
+                string names = _selectedEntity + "\n" +
+                    string.Join("\n", visibleEntities.Select(player => player.Identity + ":" + player.Label));
 
+                // The latest snapshot shares the XML's stable identity/order
+                // key, even if only HP changed during an asynchronous close.
+                _entitiesToShow = visibleEntities;
                 if (!string.Equals(names, _lastNames, StringComparison.Ordinal))
                 {
-                    _playersToShow = visiblePlayers;
-                    _playerPanel.ReplaceXml(CreatePlayerXml(visiblePlayers));
+                    _playerPanel.ReplaceXml(CreatePlayerXml(visibleEntities));
                     _lastNames = names;
                 }
                 playersReady = _playerPanel.EnsureCreated();
+                if (playersReady)
+                    RefreshEntityHealth();
             }
             else
             {
                 // No category is different from an empty category: do not create
                 // a names window or show the usual "(none)" row.
-                ClearPlayerSelection();
-                _playersToShow.Clear();
+                ClearEntitySelection();
+                _entitiesToShow.Clear();
                 _lastNames = null;
                 _playerPanel.Close();
             }
 
-            if (_selectedProfession != _lastSelection)
+            if (_selectedCategory != _lastSelection)
             {
                 for (int i = 0; i < _selectionMarkers.Length; i++)
-                    _selectionMarkers[i].Text = i == _selectedProfession ? ">" : "";
-                _lastSelection = _selectedProfession;
+                    _selectionMarkers[i].Text = i == _selectedCategory ? ">" : "";
+                _lastSelection = _selectedCategory;
             }
 
             float anchorX = screen.X * 0.25f;
@@ -294,8 +321,8 @@ namespace Radar
             {
                 // All profession rows have the same fixed height in XML. Anchor
                 // the names to the selected row, using the panel's actual top.
-                float rowHeight = _professionSize.Y / Professions.Length;
-                namesCenterY = professionLayout.Top + rowHeight * (_selectedProfession + 0.5f);
+                float rowHeight = _professionSize.Y / CategoryCount;
+                namesCenterY = professionLayout.Top + rowHeight * (CategoryRow(_selectedCategory) + 0.5f);
             }
             // In a viewport too short for the profession menu, the SDK exposes
             // no scroll offset. Keep the names on screen rather than guessing it.
@@ -304,14 +331,33 @@ namespace Radar
                     anchorX + ColumnGap, namesCenterY, screen.X - ScreenMargin - anchorX - ColumnGap, screen.Y, false);
         }
 
-        private void RefreshProfessionCounts(List<PlayerSnapshot> players)
+        private static bool MatchesCategory(RadarEntity entity, int category)
+        {
+            if (category == NpcCategory)
+                return entity.Kind == RadarEntityKind.Npc;
+            if (category == OtherCategory)
+                return entity.Kind == RadarEntityKind.Other;
+            return category >= 0 && category < Professions.Length &&
+                entity.Kind == RadarEntityKind.Player &&
+                (category == 0 || entity.Profession == Professions[category].Value);
+        }
+
+        private static int CategoryRow(int category)
+        {
+            if (category == NpcCategory)
+                return 1;
+            if (category == OtherCategory)
+                return CategoryCount - 1;
+            return category == 0 ? 0 : category + 1;
+        }
+
+        private void RefreshProfessionCounts(List<RadarEntity> players)
         {
             // Count the whole loaded roster, independently of the selected filter.
             bool changed = false;
-            for (int i = 0; i < Professions.Length; i++)
+            for (int i = 0; i < CategoryCount; i++)
             {
-                int count = i == 0 ? players.Count :
-                    players.Count(player => player.Profession == Professions[i].Value);
+                int count = players.Count(entity => MatchesCategory(entity, i));
                 if (count == _lastProfessionCounts[i])
                     continue;
 
@@ -326,7 +372,28 @@ namespace Radar
                 _professionSize = PixelSize(_professionContent.CalculatePreferredSize(false));
         }
 
-        private string CreatePlayerXml(List<PlayerSnapshot> players)
+        private void RefreshEntityHealth()
+        {
+            // Preloaded TextViews can change without replacing the native list,
+            // preserving scrolling and click targets while a creature takes damage.
+            bool changed = false;
+            for (int i = 0; i < _entitiesToShow.Count; i++)
+            {
+                if (_entityHealth[i] == null)
+                    continue;
+                string health = _entitiesToShow[i].HealthLabel;
+                if (string.Equals(health, _lastEntityHealth[i], StringComparison.Ordinal))
+                    continue;
+                _entityHealth[i].Text = health;
+                _entityHealth[i].GetPreferredSize(false);
+                _lastEntityHealth[i] = health;
+                changed = true;
+            }
+            if (changed)
+                _playerSize = PixelSize(_playerContent.CalculatePreferredSize(false));
+        }
+
+        private string CreatePlayerXml(List<RadarEntity> players)
         {
             // Populate the whole panel before native window creation. In 1.0.4,
             // this tree was populated only after native window attachment.
@@ -353,34 +420,58 @@ namespace Radar
                 button.SetAttribute("name", "Player" + i);
                 button.SetAttribute("text", players[i].Label);
                 button.SetAttribute("font", "SMALL");
-                string color = players[i].Identity == _selectedPlayer ? "0x00FF0000" : "0x00FFFFFF";
+                string color = players[i].Identity == _selectedEntity ? "0x00FF0000" : "0x00FFFFFF";
                 button.SetAttribute("color", color);
                 button.SetAttribute("hover_color", color);
                 button.SetAttribute("pressed_color", color);
                 button.SetAttribute("min_size", "Point(-1,13)");
                 button.SetAttribute("max_size", "Point(16000,13)");
-                content.AppendChild(button);
+                if (players[i].Kind == RadarEntityKind.Player)
+                    content.AppendChild(button);
+                else
+                {
+                    var row = xml.CreateElement("View");
+                    row.SetAttribute("view_layout", "horizontal");
+                    row.SetAttribute("min_size", "Point(-1,13)");
+                    row.SetAttribute("max_size", "Point(16000,13)");
+                    row.AppendChild(button);
+                    var health = xml.CreateElement("TextView");
+                    health.SetAttribute("name", "EntityHealth" + i);
+                    health.SetAttribute("value", players[i].HealthLabel);
+                    health.SetAttribute("font", "SMALL");
+                    health.SetAttribute("color", color);
+                    health.SetAttribute("feature_flags", "TVF_RENDER_SHADOW");
+                    health.SetAttribute("min_size", "Point(-1,13)");
+                    health.SetAttribute("max_size", "Point(16000,13)");
+                    row.AppendChild(health);
+                    content.AppendChild(row);
+                }
             }
             return xml.OuterXml;
         }
 
-        private void DrawSelectedPlayer()
+        private void DrawSelectedEntity()
         {
-            if (_selectedPlayer == Identity.None || Game.IsZoning)
+            if (_selectedEntity == Identity.None || Game.IsZoning)
                 return;
 
             var localPlayer = DynelManager.LocalPlayer;
-            var player = DynelManager.Players.FirstOrDefault(candidate => candidate.Identity == _selectedPlayer);
+            var player = DynelManager.AllDynels.FirstOrDefault(candidate => candidate.Identity == _selectedEntity);
             if (localPlayer == null || player == null || !player.IsValid)
             {
-                ClearPlayerSelection();
+                ClearEntitySelection();
                 _nextRefresh = 0;
                 return;
             }
 
             Vector3 position = player.GlobalPosition;
+            if (float.IsNaN(position.X) || float.IsNaN(position.Y) || float.IsNaN(position.Z) ||
+                float.IsInfinity(position.X) || float.IsInfinity(position.Y) || float.IsInfinity(position.Z))
+                return;
             AOSharp.Core.Debug.DrawLine(localPlayer.GlobalPosition, position, DebuggingColor.Red);
-            float radius = Math.Max(1f, player.Radius);
+            float radius = player.Radius;
+            if (float.IsNaN(radius) || float.IsInfinity(radius) || radius < 1f)
+                radius = 1f;
             AOSharp.Core.Debug.DrawSphere(position + new Vector3(0, radius, 0), radius, DebuggingColor.Red);
             if (!_selectedLabelsUnavailable)
             {
@@ -391,7 +482,7 @@ namespace Radar
                 catch (Exception ex)
                 {
                     _selectedLabelsUnavailable = true;
-                    Chat.WriteLine($"Radar: selected-player text unavailable: {ex.Message}");
+                    Chat.WriteLine($"Radar: selected-entity text unavailable: {ex.Message}");
                 }
             }
             // These are markers, not body-material changes. Let the client render
@@ -409,7 +500,7 @@ namespace Radar
                 if (localPlayer == null || !localPlayer.IsValid)
                     return;
                 _radar.Draw(Window.GetScreenSize(), localPlayer.Identity,
-                    localPlayer.GlobalPosition, localPlayer.Forward, _selectedPlayer);
+                    localPlayer.GlobalPosition, localPlayer.Forward, _selectedEntity);
             }
             catch (Exception ex)
             {
@@ -420,11 +511,11 @@ namespace Radar
             }
         }
 
-        private void ClearPlayerSelection()
+        private void ClearEntitySelection()
         {
-            _selectedPlayer = Identity.None;
-            _pendingPlayer = Identity.None;
-            _hasPendingPlayer = false;
+            _selectedEntity = Identity.None;
+            _pendingEntity = Identity.None;
+            _hasPendingEntity = false;
         }
 
         private struct ColumnLayout
@@ -463,7 +554,7 @@ namespace Radar
         private void OnTeleportStarted(object sender, EventArgs args)
         {
             _nextRefresh = 0;
-            ClearPlayerSelection();
+            ClearEntitySelection();
             _professions.Clear();
             CloseOverlay();
         }
@@ -478,7 +569,7 @@ namespace Radar
         private void DisableAfterError(Exception ex)
         {
             _enabled = false;
-            ClearPlayerSelection();
+            ClearEntitySelection();
             _professions.Clear();
             CloseOverlay();
             Chat.WriteLine($"Radar disabled: {ex.Message}");
@@ -488,38 +579,11 @@ namespace Radar
         {
             _disposed = true;
             _enabled = false;
-            ClearPlayerSelection();
+            ClearEntitySelection();
             Game.OnUpdate -= OnUpdate;
             Game.TeleportStarted -= OnTeleportStarted;
             _professions.Clear();
             CloseOverlay();
-        }
-
-        private sealed class PlayerSnapshot
-        {
-            public readonly Identity Identity;
-            public readonly string Name;
-            public readonly Profession Profession;
-            public readonly int Level;
-            public readonly int AILevel;
-
-            public string Label => $"{Name} ({FormatLevel(Level)}/{FormatLevel(AILevel)})";
-
-            public PlayerSnapshot(Identity identity, string name, Profession profession, int level, int aiLevel)
-            {
-                Identity = identity;
-                Name = name;
-                Profession = profession;
-                // The client uses an out-of-range sentinel for unresolved stats.
-                // AI level zero is valid; unknowns sort below known values.
-                Level = level >= 1 && level <= 220 ? level : -1;
-                AILevel = aiLevel >= 0 && aiLevel <= 30 ? aiLevel : -1;
-            }
-
-            private static string FormatLevel(int level)
-            {
-                return level < 0 ? "?" : level.ToString();
-            }
         }
 
         private sealed class HudPanel

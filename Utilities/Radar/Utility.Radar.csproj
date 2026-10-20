@@ -44,6 +44,7 @@
   <ItemGroup>
     <Compile Include="Radar.cs" />
     <Compile Include="RadarDisplay.cs" />
+    <Compile Include="RadarEntity.cs" />
     <Compile Include="SelectedPlayerLabels.cs" />
     <Compile Include="ProfessionResolver.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

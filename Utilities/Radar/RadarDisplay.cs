@@ -17,27 +17,27 @@ namespace Radar
         private static readonly Vector3 Blue = new Vector3(0.2f, 0.5f, 1);
         private static readonly Vector3 Yellow = new Vector3(1, 1, 0);
         private static readonly Vector3 Red = new Vector3(1, 0, 0);
-        private readonly HashSet<Identity> _players = new HashSet<Identity>();
+        private readonly HashSet<Identity> _entities = new HashSet<Identity>();
         private readonly ScreenLines _lines = new ScreenLines();
         private float _forwardX;
         private float _forwardZ = 1;
 
-        public void SetPlayers(IEnumerable<Identity> players)
+        public void SetEntities(IEnumerable<Identity> entities)
         {
-            _players.Clear();
-            foreach (Identity identity in players)
-                _players.Add(identity);
+            _entities.Clear();
+            foreach (Identity identity in entities)
+                _entities.Add(identity);
         }
 
         public void Clear()
         {
-            _players.Clear();
+            _entities.Clear();
             _forwardX = 0;
             _forwardZ = 1;
         }
 
         public void Draw(Vector2 screen, Identity localIdentity, Vector3 localPosition,
-            Vector3 localForward, Identity selectedPlayer)
+            Vector3 localForward, Identity selectedEntity)
         {
             if (!Finite(screen.X) || !Finite(screen.Y) || screen.X <= 0 || screen.Y <= 0)
                 return;
@@ -72,41 +72,52 @@ namespace Radar
 
             // Cache only filter membership. Read current loaded poses every
             // engine update, so movement/turning does not step at the UI rate.
-            SimpleChar selected = null;
-            foreach (var player in DynelManager.Players)
+            Dynel selected = null;
+            foreach (var entity in DynelManager.AllDynels)
             {
-                if (!player.IsValid || player.Identity == localIdentity || !_players.Contains(player.Identity))
+                if (entity.Identity == localIdentity || !_entities.Contains(entity.Identity) || !entity.IsValid)
                     continue;
-                if (player.Identity == selectedPlayer)
-                    selected = player;
+                if (entity.Identity == selectedEntity)
+                    selected = entity;
                 else
-                    Player(player, localPosition, cx, cy, radius, Yellow);
+                    Entity(entity, localPosition, cx, cy, radius, Yellow);
             }
             if (selected != null && selected.IsValid)
-                Player(selected, localPosition, cx, cy, radius, Red);
+                Entity(selected, localPosition, cx, cy, radius, Red);
 
             // Draw self last: always blue, central and pointing straight up.
             Arrow(cx, cy, 0, -1, Blue);
         }
 
-        private void Player(SimpleChar player, Vector3 local, float cx, float cy, float radius, Vector3 color)
+        private void Entity(Dynel entity, Vector3 local, float cx, float cy, float radius, Vector3 color)
         {
-            Vector3 position = player.GlobalPosition;
+            Vector3 position = entity.GlobalPosition;
             float dx = position.X - local.X, dz = position.Z - local.Z;
             float distanceSquared = dx * dx + dz * dz;
             if (!Finite(distanceSquared) || distanceSquared > RangeMetres * RangeMetres)
                 return;
 
-            Vector3 forward = player.Forward;
-            float fx = forward.X, fz = forward.Z;
-            if (!Normalize(ref fx, ref fz))
-                return;
-
             float scale = radius / RangeMetres;
-            Arrow(cx + (dx * _forwardZ - dz * _forwardX) * scale,
-                cy - (dx * _forwardX + dz * _forwardZ) * scale,
-                fx * _forwardZ - fz * _forwardX,
-                -(fx * _forwardX + fz * _forwardZ), color);
+            float x = cx + (dx * _forwardZ - dz * _forwardX) * scale;
+            float y = cy - (dx * _forwardX + dz * _forwardZ) * scale;
+            if (entity.Identity.Type == IdentityType.SimpleChar)
+            {
+                Vector3 forward = entity.Forward;
+                float fx = forward.X, fz = forward.Z;
+                if (Normalize(ref fx, ref fz))
+                {
+                    Arrow(x, y, fx * _forwardZ - fz * _forwardX,
+                        -(fx * _forwardX + fz * _forwardZ), color);
+                    return;
+                }
+            }
+
+            // Objects have no useful facing. A missing/vertical character
+            // heading must not hide an otherwise valid position either.
+            _lines.Line(x, y - 4, x + 4, y, color);
+            _lines.Line(x + 4, y, x, y + 4, color);
+            _lines.Line(x, y + 4, x - 4, y, color);
+            _lines.Line(x - 4, y, x, y - 4, color);
         }
 
         private void Arrow(float x, float y, float dx, float dy, Vector3 color)

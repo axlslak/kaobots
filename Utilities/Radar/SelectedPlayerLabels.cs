@@ -29,20 +29,28 @@ namespace Radar
         };
         private readonly CameraAxes _camera = new CameraAxes();
 
-        public void Draw(SimpleChar player, Vector3 position, float radius)
+        public void Draw(Dynel entity, Vector3 position, float radius)
         {
+            bool player = RadarEntity.KindOf(entity) == RadarEntityKind.Player;
+            string health = player ?
+                FormatPool(entity.GetStat(Stat.Health), entity.GetStat(Stat.MaxHealth), false) :
+                RadarEntity.ReadHealth(entity);
+            if (!player && health == null)
+                return;
+
             Vector3 right, up;
             if (!Finite(position) || !Finite(radius) || radius <= 0 || !_camera.TryGet(out right, out up))
                 return;
 
-            // Keep both complete rows above the circle's visible top, with HP
-            // above nano. Include glyph height because the strokes extend down.
+            // Keep complete rows above the circle. Players retain HP above
+            // nano; NPCs/objects show only a usable HP pool, without an empty row.
             Vector3 centre = position + new Vector3(0, radius, 0);
-            Vector3 nanoTop = centre + up * (radius + CircleGap + GlyphHeight);
-            Vector3 hpTop = nanoTop + up * (GlyphHeight + RowGap);
-            DrawRow(FormatPool(player.Health, player.MaxHealth, false), hpTop, right, up, DebuggingColor.Red);
-            DrawRow(FormatPool(player.Nano, player.MaxNano, true),
-                nanoTop, right, up, NanoBlue);
+            Vector3 bottomTop = centre + up * (radius + CircleGap + GlyphHeight);
+            Vector3 hpTop = player ? bottomTop + up * (GlyphHeight + RowGap) : bottomTop;
+            DrawRow(health, hpTop, right, up, DebuggingColor.Red);
+            if (player)
+                DrawRow(FormatPool(entity.GetStat(Stat.CurrentNano), entity.GetStat(Stat.MaxNanoEnergy), true),
+                    bottomTop, right, up, NanoBlue);
         }
 
         private static string FormatPool(int current, int maximum, bool nano)
