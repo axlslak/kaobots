@@ -46,6 +46,7 @@
     <Compile Include="RadarDisplay.cs" />
     <Compile Include="RadarLayout.cs" />
     <Compile Include="RadarEditor.cs" />
+    <Compile Include="RadarPointer.cs" />
     <Compile Include="RadarEntity.cs" />
     <Compile Include="SelectedPlayerLabels.cs" />
     <Compile Include="ProfessionResolver.cs" />

@@ -1,29 +1,7 @@
 <?xml version="1.0" standalone="yes"?>
 <root>
-  <View view_layout="vertical" layout_borders="Rect(14,8,14,10)"
-        min_size="Point(280,300)" max_size="Point(16000,16000)">
-    <View view_layout="vertical" min_size="Point(0,64)" max_size="Point(16000,64)">
-      <TextView value="LAYOUT MODE" font="LARGE" color="0x0065DFEA" feature_flags="TVF_RENDER_SHADOW" />
-      <TextView value="Drag the title to move; edges to resize."
-                font="SMALL" color="0x00D4E1E8" feature_flags="TVF_RENDER_SHADOW" />
-      <View view_layout="horizontal">
-        <TextView name="EditorStatus" value="READY" font="BOLD" color="0x0065DFEA" feature_flags="TVF_RENDER_SHADOW" />
-        <HLayoutSpacer />
-        <TextView name="EditorSize" value="" font="SMALL" color="0x00D4E1E8" feature_flags="TVF_RENDER_SHADOW" />
-      </View>
-    </View>
-    <VLayoutSpacer />
-    <View view_layout="vertical" min_size="Point(0,64)" max_size="Point(16000,64)">
-      <TextView value="TITLE: MOVE    |    EDGES / CORNERS: RESIZE" font="SMALL"
-                color="0x00D4E1E8" feature_flags="TVF_RENDER_SHADOW" />
-      <View view_layout="horizontal">
-        <HLayoutSpacer />
-        <Button name="ResetLayout" label="Reset" min_size="Point(70,26)" max_size="Point(70,26)" />
-        <Button name="CancelLayout" label="Cancel" min_size="Point(70,26)" max_size="Point(70,26)" />
-        <Button name="SaveLayout" label="Save &amp; Lock" min_size="Point(120,26)" max_size="Point(120,26)" />
-      </View>
-      <TextView value="Save &amp; Lock to finish. Cancel keeps the old layout." font="SMALL"
-                color="0x0098B2BF" feature_flags="TVF_RENDER_SHADOW" />
-    </View>
-  </View>
+  <!-- The native tab caption is the move grip. This tiny client view is not a
+       radar canvas: no native window spans the radar or its editing outline. -->
+  <View name="RadarGripCanvas" view_layout="vertical" layout_borders="Rect(0,0,0,0)"
+        min_size="Point(0,0)" max_size="Point(16000,8)" />
 </root>

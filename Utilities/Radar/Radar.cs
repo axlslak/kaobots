@@ -79,7 +79,7 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.15 loaded. /radar toggles; /radar edit opens the layout editor.");
+            Chat.WriteLine("Radar 1.0.16 loaded. Hover near the frame for Move/Resize grips; /radar reset restores the centre.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -284,6 +284,9 @@ namespace Radar
 
         private void EnsureLayout(Identity character)
         {
+            // Save to the old character's path before Load changes the owner.
+            if (_layout.Character != character)
+                _editor?.Stop(true);
             string warning = _layout.Load(character);
             if (warning != null)
                 Chat.WriteLine(warning);

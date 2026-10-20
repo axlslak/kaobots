@@ -94,62 +94,64 @@ namespace Radar
 
         private void EditingChrome(RadarEditor editor)
         {
-            // Native AO chrome owns the actual title/edge hit regions. These
-            // layered brackets and grip marks reinforce that frame visually.
             Rect frame = editor.Frame;
             float x = frame.MinX, y = frame.MinY, right = frame.MaxX, bottom = frame.MaxY;
             float reveal = editor.Opacity;
-            if (reveal <= 0.025f)
+            if (reveal <= 0.001f)
                 return;
             reveal = reveal * reveal * (3 - 2 * reveal);
-            Vector3 accent = (editor.Moving || editor.Resizing ?
-                new Vector3(1, 0.81f, 0.53f) : new Vector3(0.40f, 0.87f, 0.92f));
+            Vector3 accent = editor.SaveFailed ? new Vector3(1, 0.42f, 0.38f) :
+                editor.Moving || editor.Resizing ? new Vector3(1, 0.81f, 0.53f) :
+                new Vector3(0.40f, 0.87f, 0.92f);
             Vector3 shadow = new Vector3(0.015f, 0.025f, 0.035f);
             Vector3 soft = new Vector3(0.19f, 0.35f, 0.40f);
 
-            // A dark under-stroke keeps the bright edge legible on both sky and
-            // buildings. Broad open corners avoid the single-line-box appearance.
+            // Every stroke grows continuously with proximity. Add2DLine has no
+            // alpha; shortening strokes avoids "fading" them into opaque black.
             FrameCorner(x, y, 1, 1, reveal, shadow, accent);
             FrameCorner(right, y, -1, 1, reveal, shadow, accent);
             FrameCorner(x, bottom, 1, -1, reveal, shadow, accent);
             FrameCorner(right, bottom, -1, -1, reveal, shadow, accent);
-            if (reveal < 0.65f)
+            float rail = Math.Max(0, (reveal - 0.12f) / 0.88f);
+            GrowRail(x + 30, y + 1, right - 30, y + 1, rail, soft);
+            GrowRail(x + 30, bottom - 1, right - 30, bottom - 1, rail, soft);
+            GrowRail(x + 1, y + 30, x + 1, bottom - 30, rail, soft);
+            GrowRail(right - 1, y + 30, right - 1, bottom - 30, rail, soft);
+
+            // Native labelled Move/Resize captions identify the two real
+            // input grips. Keep decorative marks away from false grab points.
+
+        }
+
+        private void GrowRail(float x1, float y1, float x2, float y2, float reveal, Vector3 color)
+        {
+            if (reveal <= 0)
                 return;
-            _lines.Line(x + 34, y + 1, right - 34, y + 1, soft);
-            _lines.Line(x + 34, bottom - 1, right - 34, bottom - 1, soft);
-            _lines.Line(x + 1, y + 34, x + 1, bottom - 34, soft);
-            _lines.Line(right - 1, y + 34, right - 1, bottom - 34, soft);
-
-            // Visible edge-centre grips and lower-right diagonal hatching.
-            float midX = (x + right) * 0.5f, midY = (y + bottom) * 0.5f;
-            for (int offset = -2; offset <= 2; offset++)
-            {
-                _lines.Line(x + offset, midY - 12, x + offset, midY + 12, accent);
-                _lines.Line(right + offset, midY - 12, right + offset, midY + 12, accent);
-                _lines.Line(midX - 12, bottom + offset, midX + 12, bottom + offset, accent);
-            }
-            for (int inset = 8; inset <= 22; inset += 7)
-                _lines.Line(right - inset, bottom - 4, right - 4, bottom - inset, accent);
-
+            float dx = (x2 - x1) * 0.5f * reveal, dy = (y2 - y1) * 0.5f * reveal;
+            _lines.Line(x1, y1, x1 + dx, y1 + dy, color);
+            _lines.Line(x2, y2, x2 - dx, y2 - dy, color);
         }
 
         private void FrameCorner(float x, float y, float dx, float dy, float reveal, Vector3 shadow, Vector3 accent)
         {
-            float length = 6 + 24 * reveal;
+            float length = 30 * reveal;
             for (int thickness = -1; thickness <= 4; thickness++)
             {
-                _lines.Line(x - dx, y + thickness * dy, x + length * dx, y + thickness * dy, shadow);
-                _lines.Line(x + thickness * dx, y - dy, x + thickness * dx, y + length * dy, shadow);
+                _lines.Line(x, y + thickness * dy, x + length * dx, y + thickness * dy, shadow);
+                _lines.Line(x + thickness * dx, y, x + thickness * dx, y + length * dy, shadow);
             }
+            float start = Math.Min(2, length * 0.25f), end = Math.Max(start, length - 3);
             for (int thickness = 0; thickness < 3; thickness++)
             {
-                _lines.Line(x + 2 * dx, y + thickness * dy, x + (length - 3) * dx, y + thickness * dy, accent);
-                _lines.Line(x + thickness * dx, y + 2 * dy, x + thickness * dx, y + (length - 3) * dy, accent);
+                _lines.Line(x + start * dx, y + thickness * dy, x + end * dx, y + thickness * dy, accent);
+                _lines.Line(x + thickness * dx, y + start * dy, x + thickness * dx, y + end * dy, accent);
             }
-            if (reveal < 0.75f)
-                return;
-            _lines.Line(x + 7 * dx, y + 7 * dy, x + 13 * dx, y + 7 * dy, accent);
-            _lines.Line(x + 7 * dx, y + 7 * dy, x + 7 * dx, y + 13 * dy, accent);
+            float detail = 6 * Math.Max(0, (reveal - 0.3f) / 0.7f);
+            if (detail > 0)
+            {
+                _lines.Line(x + 7 * dx, y + 7 * dy, x + (7 + detail) * dx, y + 7 * dy, accent);
+                _lines.Line(x + 7 * dx, y + 7 * dy, x + 7 * dx, y + (7 + detail) * dy, accent);
+            }
         }
 
         private void Entity(Dynel entity, Vector3 local, float cx, float cy, float radius, Vector3 color)

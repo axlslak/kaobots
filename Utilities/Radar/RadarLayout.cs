@@ -20,6 +20,7 @@ namespace Radar
         private float _centerX = 0.5f, _centerY = 0.5f, _size = 0.5f;
         private string _path;
         private Identity _character = Identity.None;
+        public Identity Character => _character;
 
         public string Load(Identity character)
         {

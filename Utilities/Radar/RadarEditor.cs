@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using AOSharp.Common.GameData;
@@ -11,311 +10,471 @@ namespace Radar
 {
     internal enum RadarEditorAction { None, Edit, Lock, Reset, Cancel }
 
+    // The frame is drawn by RadarDisplay. Native windows exist only at the two
+    // labelled grips; no native window covers the radar's centre.
     internal sealed class RadarEditor
     {
-        private const float Padding = 16, Header = 76, Footer = 76, Margin = 8;
-        private const float MinimumWidth = 360, MinimumHeight = 380;
-        private const uint Cyan = 0x0065DFEA, Amber = 0x00FFCF88, Error = 0x00FF8C82;
-        private readonly string _xmlPath;
+        private enum GripKind { None, Move, Resize }
+        private const float RevealDistance = 64, ArmDistance = 112, LeaveDistance = 136;
         private readonly RadarLayout _layout;
-        private readonly NativeFrame _nativeFrame = new NativeFrame();
-        private Window _window;
-        private TextView _status, _size;
+        private readonly NativeGrip _move, _resize;
         private RadarEditorAction _requested;
-        private bool _editing, _ready, _closing, _fadingOut, _wantOpen;
-        private bool _saveFailed;
-        private long _transitionStart, _motionUntil;
-        private float _fadeStart;
-        private string _motion = "READY", _lastStatus, _lastSize;
-        private uint _lastColour;
-        private Rect _frame;
-        private RadarViewport _preview;
+        private RadarViewport _preview, _dragOrigin;
+        private Rect _nativeOrigin;
         private Vector2 _screen;
+        private GripKind _active;
+        private bool _hasPreview, _dirty, _armed, _suspended, _needsPlace, _recreateGrips, _unavailable;
+        private int _revision, _attemptedRevision = -1;
+        private long _lastTime, _awaySince, _manualUntil, _motionUntil;
+        private IntPtr _inputWindow;
+        private int _clientWidth, _clientHeight;
 
-        public bool Visible => _window != null && _window.IsValid && _ready && !_closing;
+        public bool Visible => _hasPreview && Opacity > 0.001f;
         public float Opacity { get; private set; }
         public bool Moving { get; private set; }
         public bool Resizing { get; private set; }
-        public Rect Frame => _frame;
+        public bool SaveFailed { get; private set; }
+        public Rect Frame => FrameFor(_preview);
 
         public RadarEditor(string pluginDirectory, RadarLayout layout)
         {
-            _xmlPath = Path.Combine(pluginDirectory, "UI", "RadarEditor.xml");
             _layout = layout;
+            string xml = Path.Combine(pluginDirectory, "UI", "RadarEditor.xml");
+            _move = new NativeGrip("Radar - Move", xml, 136);
+            _resize = new NativeGrip("Radar - Resize", xml, 104);
         }
 
         public void Request(RadarEditorAction action) => _requested = action;
-
-        public RadarViewport GetViewport(Vector2 screen)
-        {
-            return Visible ? _preview : _layout.GetViewport(screen);
-        }
+        public RadarViewport GetViewport(Vector2 screen) => _hasPreview ? _preview : _layout.GetViewport(screen);
 
         public void Update(Vector2 screen, long now)
         {
-            if (_window != null && !_window.IsValid)
+            if (_unavailable)
             {
-                _window = null;
-                _status = _size = null;
-                _ready = _closing = _fadingOut = _editing = false;
-                Opacity = 0;
-            }
-            if (_editing && _ready && (screen.X != _screen.X || screen.Y != _screen.Y))
-            {
-                if (screen.X < MinimumWidth + Margin * 2 || screen.Y < MinimumHeight + Margin * 2)
-                {
-                    Stop(true);
-                    _screen = screen;
-                    Chat.WriteLine("Radar: layout editor closed because the game window is too small. The last valid layout was saved if possible.");
-                    return;
-                }
-                RadarViewport adjusted = RadarLayout.Fit(screen,
-                    _preview.CenterX / _screen.X * screen.X, _preview.CenterY / _screen.Y * screen.Y,
-                    _preview.Size / _screen.Y * screen.Y);
-                SetLimits(screen);
-                Place(FrameFor(adjusted, screen));
-            }
-            _screen = screen;
-
-            RadarEditorAction action = _requested;
-            _requested = RadarEditorAction.None;
-            if (action == RadarEditorAction.Edit)
-                _wantOpen = !_editing;
-            else if (action == RadarEditorAction.Lock && _editing && _ready)
-            {
-                ReadFrame();
-                if (Commit())
-                    BeginClose(now);
-            }
-            else if (action == RadarEditorAction.Cancel)
-            {
-                _wantOpen = false;
-                if (_editing)
-                    BeginClose(now);
-            }
-            else if (action == RadarEditorAction.Reset)
-            {
-                if (_editing && _ready)
-                {
-                    Place(FrameFor(RadarLayout.Default(screen), screen));
-                    _motion = "CENTRED";
-                    _motionUntil = now + 900;
-                    _saveFailed = false;
-                    Moving = Resizing = false;
-                }
-                else if (_window == null)
+                // Reset remains useful even if this client cannot create grips.
+                RadarEditorAction action = _requested;
+                _requested = RadarEditorAction.None;
+                if (action == RadarEditorAction.Reset)
                 {
                     _layout.Save(RadarLayout.Default(screen), screen);
                     Chat.WriteLine("Radar: centred layout restored.");
                 }
-            }
-
-            if (_window == null && _wantOpen)
-                Open(screen, now);
-            if (_window == null || _closing)
                 return;
-
-            if (_editing)
+            }
+            try { UpdateCore(screen, now); }
+            catch
             {
-                Rect previous = _frame;
-                ReadFrame();
-                bool resized = Changed(Width(previous), Width(_frame)) || Changed(Height(previous), Height(_frame));
-                bool moved = !resized && (Changed(previous.MinX, _frame.MinX) || Changed(previous.MinY, _frame.MinY));
-                if (moved || resized)
+                _unavailable = true;
+                Stop(true);
+                throw;
+            }
+        }
+
+        private void UpdateCore(Vector2 screen, long now)
+        {
+            float elapsed = _lastTime == 0 ? 16 : Math.Max(0, Math.Min(100, now - _lastTime));
+            _lastTime = now;
+            if (!_hasPreview)
+            {
+                _screen = screen;
+                _preview = _layout.GetViewport(screen);
+                _hasPreview = true;
+            }
+            if (screen.X != _screen.X || screen.Y != _screen.Y)
+            {
+                // Preserve proportions, but defer native teardown and any dirty
+                // save until a focused UP confirms the gesture has ended.
+                _preview = RadarLayout.Fit(screen, _preview.CenterX / _screen.X * screen.X,
+                    _preview.CenterY / _screen.Y * screen.Y, _preview.Size / _screen.Y * screen.Y);
+                _active = GripKind.None;
+                _armed = false;
+                _suspended = true;
+                _needsPlace = true;
+                _recreateGrips = true;
+            }
+            _screen = screen;
+            _move.CheckClosed();
+            _resize.CheckClosed();
+
+            RadarPointerSample pointer;
+            bool valid = RadarPointer.TryRead(screen, out pointer);
+            if (valid && (_inputWindow != pointer.Window || _clientWidth != pointer.ClientWidth ||
+                _clientHeight != pointer.ClientHeight))
+            {
+                _inputWindow = pointer.Window;
+                _clientWidth = pointer.ClientWidth;
+                _clientHeight = pointer.ClientHeight;
+                _armed = false;
+                _suspended = true;
+                _recreateGrips = true;
+            }
+
+            if (!valid)
+            {
+                // Focus/query loss is not a mouse-up. Keep native drag ownership;
+                // freeze the preview and wait for a focused UP before re-arming.
+                _armed = false;
+                _suspended = true;
+            }
+            else if (!pointer.Down)
+            {
+                if (_suspended)
                 {
-                    _saveFailed = false;
-                    Resizing = resized;
-                    Moving = moved;
-                    _motion = resized ? "RESIZING" : "MOVING";
-                    _motionUntil = now + 220;
+                    _active = GripKind.None;
+                    _needsPlace = true;
+                    TrySave(false); // Last validated snapshot, no ambiguous delta.
+                    _suspended = false;
                 }
-                if (now >= _motionUntil)
+                else if (_armed && !_needsPlace)
+                    ObserveNativeMovement(now);
+                if (_active != GripKind.None)
+                    FinishGesture(now);
+                if (_recreateGrips)
                 {
-                    _motion = "READY";
-                    Moving = Resizing = false;
+                    _move.Close();
+                    _resize.Close();
+                    _recreateGrips = false;
                 }
-                SetStatus(_saveFailed ? "SAVE FAILED" : _motion, _saveFailed ? Error : now < _motionUntil ? Amber : Cyan);
-                string size = Math.Round(_preview.Size).ToString(CultureInfo.InvariantCulture) +
-                    " x " + Math.Round(_preview.Size).ToString(CultureInfo.InvariantCulture) + "   |   100 m";
-                if (size != _lastSize)
+                _armed = true;
+                HandleRequest(now);
+            }
+            else if (_armed && !_suspended && !_needsPlace)
+                ObserveNativeMovement(now);
+
+            Rect moveRect = GripRect(GripKind.Move), resizeRect = GripRect(GripKind.Resize);
+            float hotDistance = valid && pointer.Inside ? Math.Min(
+                DistanceToRect(pointer.Position, NativeGrip.Footprint(moveRect)),
+                DistanceToRect(pointer.Position, NativeGrip.Footprint(resizeRect))) : float.MaxValue;
+            float distance = valid && pointer.Inside ?
+                Math.Min(DistanceToPerimeter(pointer.Position, Frame), hotDistance) : float.MaxValue;
+            bool manual = now < _manualUntil;
+            bool dragging = _active != GripKind.None && valid && !_suspended;
+
+            if (valid && !pointer.Down && _armed && screen.X >= 240 && screen.Y >= 240 &&
+                (distance < ArmDistance || manual))
+            {
+                // Arm before the pointer reaches the actual grip. Never create,
+                // close or reposition an ordinary grip in the middle of a press.
+                bool first = _move.Ensure(moveRect), second = _resize.Ensure(resizeRect);
+                if (first && second && _needsPlace)
                 {
-                    _size.Text = size;
-                    _size.GetPreferredSize(false);
-                    _lastSize = size;
+                    _move.Place(moveRect);
+                    _resize.Place(resizeRect);
+                    _needsPlace = false;
                 }
             }
 
-            if (_fadingOut)
+            float proximity = Smooth(Clamp(1 - distance / RevealDistance, 0, 1));
+            float target = dragging || manual ? 1 : valid ? proximity : 0;
+            if (SaveFailed && valid)
+                target = Math.Max(target, 0.45f);
+            Opacity += (target - Opacity) * (1 - (float)Math.Exp(-elapsed / (target > Opacity ? 85 : 145)));
+            if (Opacity < 0.001f && target == 0)
+                Opacity = 0;
+            if (1 - Opacity < 0.001f && target == 1)
+                Opacity = 1;
+
+            // The two small native captions fade; line chrome grows continuously
+            // with proximity because Add2DLine has RGB, not an alpha channel.
+            _move.SetAlpha(_active == GripKind.Resize ? 0 : Opacity * 0.92f);
+            _resize.SetAlpha(_active == GripKind.Move ? 0 : Opacity * 0.92f);
+
+            if (valid && !pointer.Down && !dragging && !manual && distance > LeaveDistance)
             {
-                Opacity = _fadeStart * Math.Max(0, 1 - (now - _transitionStart) / 160f);
-                if (Opacity <= 0)
+                if (_awaySince == 0)
+                    _awaySince = now;
+                if (now - _awaySince >= 240)
                 {
-                    CloseNative();
-                    return;
+                    TrySave(false);
+                    if (Opacity == 0)
+                    {
+                        _move.Close();
+                        _resize.Close();
+                    }
                 }
             }
             else
-                Opacity = Math.Min(1, (now - _transitionStart) / 160f);
-            // Native chrome, text and controls fade together. The transparent
-            // canvas contains no custom background bitmap.
-            _window.SetAlpha(Opacity * 0.90f);
+                _awaySince = 0;
+
+            if (now >= _motionUntil && _active == GripKind.None)
+                Moving = Resizing = false;
         }
 
-        private void Open(Vector2 screen, long now)
+        private void HandleRequest(long now)
         {
-            _wantOpen = false;
-            if (screen.X < MinimumWidth + Margin * 2 || screen.Y < MinimumHeight + Margin * 2)
-                throw new InvalidOperationException("The game window is too small for the layout editor.");
-            if (!File.Exists(_xmlPath))
-                throw new FileNotFoundException("RadarEditor.xml must accompany this version of Radar.", _xmlPath);
-
-            Rect wanted = FrameFor(_layout.GetViewport(screen), screen);
-            _window = Window.CreateFromXml("Radar Layout", _xmlPath, wanted,
-                WindowStyle.Default, WindowFlags.NoExit | WindowFlags.NoFade);
-            if (_window == null)
-                throw new InvalidOperationException("Could not create the radar layout editor.");
-            _window.SetAlpha(0);
-            _window.SetTitle("RADAR  |  DRAG THE TITLE TO MOVE");
-            _nativeFrame.Reset();
-            SetLimits(screen);
-            // Never use the SDK's parameter-incomplete GetFrame wrapper.
-            _nativeFrame.Calibrate(_window, wanted);
-            SetLimits(screen);
-            Place(wanted);
-            Bind();
-            _editing = _ready = true;
-            _closing = _fadingOut = false;
-            _transitionStart = now;
-            _motionUntil = 0;
-            _lastStatus = _lastSize = null;
-            _motion = "READY";
-            _saveFailed = false;
-            _window.Show(true);
-        }
-
-        private void Bind()
-        {
-            Button save, reset, cancel;
-            if (!_window.FindView("EditorStatus", out _status) || !_window.FindView("EditorSize", out _size) ||
-                !_window.FindView("SaveLayout", out save) || !_window.FindView("ResetLayout", out reset) ||
-                !_window.FindView("CancelLayout", out cancel))
-                throw new InvalidOperationException("The radar editor controls could not be loaded.");
-            save.SetColorOverride(Cyan);
-            save.SetLabelColor(0x00FFFFFF);
-            save.Clicked = (sender, button) => Request(RadarEditorAction.Lock);
-            reset.Clicked = (sender, button) => Request(RadarEditorAction.Reset);
-            cancel.Clicked = (sender, button) => Request(RadarEditorAction.Cancel);
-        }
-
-        private void SetLimits(Vector2 screen)
-        {
-            _nativeFrame.SetLimits(_window, MinimumWidth, MinimumHeight,
-                screen.X - Margin * 2, screen.Y - Margin * 2);
-        }
-
-        private void Place(Rect frame)
-        {
-            _nativeFrame.Place(_window, frame);
-            ReadFrame();
-        }
-
-        private void ReadFrame()
-        {
-            _frame = _nativeFrame.Read(_window);
-            float availableWidth = Width(_frame) - Padding * 2;
-            float availableHeight = Height(_frame) - Header - Footer;
-            float size = Math.Min(availableWidth, availableHeight);
-            if (size < 80 || !RadarLayout.Finite(size))
-                throw new InvalidOperationException("The radar editor returned unusable canvas bounds.");
-            _preview = new RadarViewport
+            RadarEditorAction action = _requested;
+            _requested = RadarEditorAction.None;
+            if (action == RadarEditorAction.Edit)
+                _manualUntil = now + 3000; // Optional discovery aid; not an edit mode.
+            else if (action == RadarEditorAction.Lock)
             {
-                X = _frame.MinX + Width(_frame) * 0.5f - size * 0.5f,
-                Y = _frame.MinY + Header + availableHeight * 0.5f - size * 0.5f,
-                Size = size
-            };
+                TrySave(true);
+                _manualUntil = 0;
+            }
+            else if (action == RadarEditorAction.Cancel)
+            {
+                _preview = _layout.GetViewport(_screen);
+                _dirty = SaveFailed = false;
+                _needsPlace = true;
+                _manualUntil = 0;
+                _revision++;
+            }
+            else if (action == RadarEditorAction.Reset)
+            {
+                SetPreview(RadarLayout.Default(_screen));
+                _needsPlace = true;
+                TrySave(true);
+                _manualUntil = now + 1600;
+                Chat.WriteLine(SaveFailed ? "Radar: centred preview could not be saved." : "Radar: centred layout restored.");
+            }
         }
 
-        private static Rect FrameFor(RadarViewport viewport, Vector2 screen)
+        private void ObserveNativeMovement(long now)
         {
-            float width = Math.Min(screen.X - Margin * 2, Math.Max(MinimumWidth, viewport.Size + Padding * 2));
-            float height = Math.Min(screen.Y - Margin * 2, Math.Max(MinimumHeight, viewport.Size + Header + Footer));
-            float x = Math.Max(Margin, Math.Min(screen.X - Margin - width, viewport.CenterX - width * 0.5f));
-            float y = Math.Max(Margin, Math.Min(screen.Y - Margin - height, viewport.CenterY - height * 0.5f));
-            return new Rect(x, y, x + width - 1, y + height - 1);
+            if (_active != GripKind.None && !ActiveGrip.Ready)
+            {
+                // An externally removed grip is an interruption, not proof of
+                // release. Save the validated snapshot on a later focused UP.
+                _active = GripKind.None;
+                _armed = false;
+                _suspended = true;
+                _needsPlace = true;
+                return;
+            }
+            if (_active == GripKind.None)
+            {
+                Rect current;
+                if (_move.Displaced(out current))
+                    BeginGesture(GripKind.Move, current);
+                else if (_resize.Displaced(out current))
+                    BeginGesture(GripKind.Resize, current);
+            }
+            else
+                ApplyNative(ActiveGrip.Read());
+
+            if (_active != GripKind.None)
+            {
+                Moving = _active == GripKind.Move;
+                Resizing = _active == GripKind.Resize;
+                _motionUntil = now + 220;
+            }
         }
 
-        private bool Commit()
+        private NativeGrip ActiveGrip => _active == GripKind.Move ? _move : _resize;
+
+        private void BeginGesture(GripKind kind, Rect current)
         {
+            // Actual native displacement proves AO accepted the gesture. Cursor
+            // proximity alone never grants us ownership of a game click.
+            _active = kind;
+            _nativeOrigin = ActiveGrip.RestFrame;
+            _dragOrigin = _preview;
+            SaveFailed = false;
+            ApplyNative(current);
+        }
+
+        private void ApplyNative(Rect current)
+        {
+            float dx = current.MinX - _nativeOrigin.MinX, dy = current.MinY - _nativeOrigin.MinY;
+            RadarViewport next;
+            if (_active == GripKind.Move)
+                next = RadarLayout.Fit(_screen, _dragOrigin.CenterX + dx, _dragOrigin.CenterY + dy, _dragOrigin.Size);
+            else
+            {
+                // Project a corner drag onto a square's diagonal. Keep its upper
+                // left anchor and the radar circular; the outer ring stays100m.
+                float maximum = Math.Max(1, Math.Min(_screen.X - 8 - _dragOrigin.X, _screen.Y - 8 - _dragOrigin.Y));
+                float size = Clamp(_dragOrigin.Size + (dx + dy) * 0.5f, Math.Min(160, maximum), maximum);
+                next = new RadarViewport { X = _dragOrigin.X, Y = _dragOrigin.Y, Size = size };
+            }
+            SetPreview(next);
+        }
+
+        private void SetPreview(RadarViewport next)
+        {
+            if (Math.Abs(next.X - _preview.X) <= 0.05f && Math.Abs(next.Y - _preview.Y) <= 0.05f &&
+                Math.Abs(next.Size - _preview.Size) <= 0.05f)
+                return;
+            _preview = next;
+            _dirty = true;
+            _revision++;
+        }
+
+        private void FinishGesture(long now)
+        {
+            _active = GripKind.None;
+            _motionUntil = now + 220;
+            _needsPlace = true;
+            TrySave(false);
+        }
+
+        private void TrySave(bool force)
+        {
+            if (!_hasPreview || !_dirty || (!force && _attemptedRevision == _revision))
+                return;
+            _attemptedRevision = _revision;
             try
             {
-                RadarViewport fitted = RadarLayout.Fit(_screen, _preview.CenterX, _preview.CenterY, _preview.Size);
-                _layout.Save(fitted, _screen);
-                Chat.WriteLine("Radar: layout saved and locked.");
-                return true;
+                _layout.Save(_preview, _screen);
+                _dirty = SaveFailed = false;
             }
             catch (Exception ex)
             {
-                _saveFailed = true;
-                SetStatus("SAVE FAILED", Error);
-                Chat.WriteLine("Radar: layout was not saved; the editor is still open. " + ex.Message);
-                return false;
+                SaveFailed = true;
+                Chat.WriteLine("Radar: layout could not be saved. The preview is retained; /radar lock retries, /radar cancel restores the saved layout. " + ex.Message);
             }
         }
 
-        private void SetStatus(string text, uint colour)
-        {
-            if (text != _lastStatus)
-            {
-                _status.Text = text;
-                _status.GetPreferredSize(false);
-                _lastStatus = text;
-            }
-            if (colour != _lastColour)
-            {
-                _status.SetColor(colour);
-                _lastColour = colour;
-            }
-        }
-
-        private void BeginClose(long now)
-        {
-            _wantOpen = false;
-            _editing = false;
-            _fadingOut = true;
-            Moving = Resizing = false;
-            _fadeStart = Opacity;
-            _transitionStart = now;
-        }
-
-        // Called before zoning/teardown: save the last validated snapshot, never
-        // query native geometry while the game is destroying its UI.
         public void Stop(bool save)
         {
-            _wantOpen = false;
+            if (save)
+                TrySave(false);
+            _move.Close();
+            _resize.Close();
+            _active = GripKind.None;
+            _hasPreview = _armed = _suspended = _dirty = SaveFailed = false;
+            _recreateGrips = false;
             _requested = RadarEditorAction.None;
-            if (save && _editing && _ready)
-            {
-                try { _layout.Save(RadarLayout.Fit(_screen, _preview.CenterX, _preview.CenterY, _preview.Size), _screen); }
-                catch (Exception ex) { Chat.WriteLine("Radar: layout could not be saved. " + ex.Message); }
-            }
-            CloseNative();
-        }
-
-        private void CloseNative()
-        {
-            _editing = _ready = _fadingOut = false;
+            _lastTime = _awaySince = _manualUntil = _motionUntil = 0;
+            _inputWindow = IntPtr.Zero;
+            _needsPlace = true;
             Moving = Resizing = false;
             Opacity = 0;
-            if (_window != null && _window.IsValid && !_closing)
-            {
-                _closing = true;
-                _window.Close();
-            }
         }
 
-        private static bool Changed(float first, float second) => Math.Abs(first - second) > 0.25f;
+        private Rect GripRect(GripKind kind)
+        {
+            Rect frame = Frame;
+            NativeGrip grip = kind == GripKind.Move ? _move : _resize;
+            float x = kind == GripKind.Move ? (frame.MinX + frame.MaxX + 1 - grip.Width) * 0.5f :
+                frame.MaxX - 4 - grip.Width;
+            float y = kind == GripKind.Move ? frame.MinY + 26 : frame.MaxY - 4 - NativeGrip.Height;
+            // These are calibrated client coordinates. Leave room for the
+            // original style0 native title/tab above them, including at edges.
+            x = Clamp(x, 8, _screen.X - grip.Width - 8);
+            y = Clamp(y, 32, _screen.Y - NativeGrip.Height - 8);
+            return new Rect(x, y, x + grip.Width - 1, y + NativeGrip.Height - 1);
+        }
+
+        private static Rect FrameFor(RadarViewport viewport) => new Rect(
+            viewport.X - 12, viewport.Y - 44, viewport.X + viewport.Size + 11, viewport.Y + viewport.Size + 11);
+
+        private static float DistanceToRect(Vector2 point, Rect rect)
+        {
+            float x = Math.Max(rect.MinX - point.X, Math.Max(0, point.X - rect.MaxX));
+            float y = Math.Max(rect.MinY - point.Y, Math.Max(0, point.Y - rect.MaxY));
+            return (float)Math.Sqrt(x * x + y * y);
+        }
+
+        private static float DistanceToPerimeter(Vector2 point, Rect rect)
+        {
+            if (point.X < rect.MinX || point.X > rect.MaxX || point.Y < rect.MinY || point.Y > rect.MaxY)
+                return DistanceToRect(point, rect);
+            return Math.Min(Math.Min(point.X - rect.MinX, rect.MaxX - point.X),
+                Math.Min(point.Y - rect.MinY, rect.MaxY - point.Y));
+        }
+
+        private static float Smooth(float value) => value * value * (3 - 2 * value);
+        private static float Clamp(float value, float min, float max) => Math.Max(min, Math.Min(max, value));
         private static float Width(Rect rect) => rect.MaxX - rect.MinX + 1;
         private static float Height(Rect rect) => rect.MaxY - rect.MinY + 1;
+
+        private sealed class NativeGrip
+        {
+            public const float Height = 8;
+            public readonly float Width;
+            public Rect RestFrame { get; private set; }
+            private readonly string _name, _xml;
+            private readonly NativeFrame _geometry = new NativeFrame();
+            private Window _window;
+            private bool _ready, _closing;
+            public bool Ready => _ready && !_closing && _window != null && _window.IsValid;
+
+            public NativeGrip(string name, string xml, float width)
+            {
+                _name = name;
+                _xml = xml;
+                Width = width;
+            }
+
+            public void CheckClosed()
+            {
+                if (_window != null && !_window.IsValid)
+                {
+                    _window = null;
+                    _ready = _closing = false;
+                }
+            }
+
+            public bool Ensure(Rect wanted)
+            {
+                CheckClosed();
+                if (_window != null)
+                    return _ready && !_closing;
+                if (!File.Exists(_xml))
+                    throw new FileNotFoundException("The updated UI/RadarEditor.xml must accompany Radar1.0.16.", _xml);
+                // Both are move-only native windows. A corner proxy's MOVE is
+                // interpreted as resize; it is never a miniature resizable UI.
+                _window = Window.CreateFromXml(_name, _xml, wanted, WindowStyle.Default,
+                    WindowFlags.NoExit | WindowFlags.NoFade | (WindowFlags)0x30);
+                if (_window == null)
+                    throw new InvalidOperationException("Could not create a radar grip.");
+                _window.SetAlpha(0);
+                View canvas;
+                if (!_window.FindView("RadarGripCanvas", out canvas))
+                    throw new InvalidOperationException("Radar requires the updated, minimal RadarEditor.xml.");
+                _geometry.Reset();
+                // Calibrate away from screen edges so the +4 probe is not clamped.
+                _geometry.Calibrate(_window, new Rect(64, 64, 64 + Width - 1, 64 + Height - 1));
+                _geometry.SetLimits(_window, Width, Height, Width, Height);
+                _ready = true;
+                Place(wanted);
+                _window.Show(true);
+                Place(wanted);
+                return true;
+            }
+
+            public void Place(Rect wanted)
+            {
+                if (!_ready || _closing || _window == null || !_window.IsValid)
+                    return;
+                _geometry.Place(_window, wanted);
+                RestFrame = _geometry.Read(_window);
+            }
+
+            public Rect Read() => _geometry.Read(_window);
+
+            public bool Displaced(out Rect current)
+            {
+                current = default(Rect);
+                if (!_ready || _closing || _window == null || !_window.IsValid)
+                    return false;
+                current = Read();
+                return Math.Abs(current.MinX - RestFrame.MinX) > 0.25f ||
+                    Math.Abs(current.MinY - RestFrame.MinY) > 0.25f;
+            }
+
+            public void SetAlpha(float alpha)
+            {
+                if (_ready && !_closing && _window != null && _window.IsValid)
+                    _window.SetAlpha(alpha);
+            }
+
+            public void Close()
+            {
+                _ready = false;
+                if (_window != null && _window.IsValid && !_closing)
+                {
+                    _closing = true;
+                    _window.Close();
+                }
+            }
+
+            // Original style0/tab insets from native RE. Gesture ownership does
+            // not depend on these estimates; observed native movement is required.
+            public static Rect Footprint(Rect client) => new Rect(
+                client.MinX - 5, client.MinY - 26, client.MaxX + 5, client.MaxY + 5);
+        }
 
         private sealed class NativeFrame
         {
@@ -366,7 +525,10 @@ namespace Radar
 
             public void Place(Window window, Rect wanted)
             {
-                window.ResizeTo(new Vector2(Width(wanted) - 1 - _extraWidth, Height(wanted) - 1 - _extraHeight));
+                float width = Width(wanted) - 1 - _extraWidth, height = Height(wanted) - 1 - _extraHeight;
+                if (width < 1 || height < 1)
+                    throw new InvalidOperationException("This client cannot create a grip with usable client dimensions.");
+                window.ResizeTo(new Vector2(width, height));
                 window.MoveTo(wanted.MinX - _offsetX, wanted.MinY - _offsetY);
                 Rect actual = Read(window);
                 if (Math.Abs(actual.MinX - wanted.MinX) > 3 || Math.Abs(actual.MinY - wanted.MinY) > 3 ||
