@@ -3,7 +3,7 @@
   <ScrollView name="ProfessionScroll" v_scrollbar_mode="auto" h_scrollbar_mode="auto"
               min_size="Point(0,0)">
     <ScrollViewChild>
-      <View name="ProfessionContent" view_layout="vertical" h_alignment="RIGHT">
+      <View name="ProfessionContent" view_layout="vertical" h_alignment="LEFT">
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession0" text="All" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"

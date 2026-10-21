@@ -37,7 +37,7 @@ namespace Radar
         }
 
         public void Draw(Vector2 screen, Identity localIdentity, Vector3 localPosition,
-            Vector3 localForward, Identity selectedEntity, RadarViewport viewport, RadarEditor editor)
+            Vector3 localForward, Identity selectedEntity, RadarViewport viewport, IEnumerable<RadarEditor> editors)
         {
             if (!Finite(screen.X) || !Finite(screen.Y) || screen.X <= 0 || screen.Y <= 0)
                 return;
@@ -88,8 +88,10 @@ namespace Radar
 
             // Draw self last: always blue, central and pointing straight up.
             Arrow(cx, cy, 0, -1, Blue);
-            if (editor != null && editor.Visible)
-                EditingChrome(editor);
+            if (editors != null)
+                foreach (RadarEditor editor in editors)
+                    if (editor.Visible)
+                        EditingChrome(editor);
         }
 
         private void EditingChrome(RadarEditor editor)

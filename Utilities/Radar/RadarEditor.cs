@@ -29,6 +29,9 @@ namespace Radar
         private IntPtr _inputWindow;
         private int _clientWidth, _clientHeight;
 
+        public bool Dragging => _active != GripKind.None;
+        public bool Available => !_unavailable;
+        public string Caption => _layout.Caption;
         public bool Visible => _hasPreview && Opacity > 0.001f;
         public float Opacity { get; private set; }
         public bool Moving { get; private set; }
@@ -40,14 +43,14 @@ namespace Radar
         {
             _layout = layout;
             string xml = Path.Combine(pluginDirectory, "UI", "RadarEditor.xml");
-            _move = new NativeGrip("Radar - Move", xml, 136);
-            _resize = new NativeGrip("Radar - Resize", xml, 104);
+            _move = new NativeGrip(layout.Caption + " - Move", xml, layout.IsSquare ? 136 : 172);
+            _resize = new NativeGrip(layout.Caption + " - Resize", xml, layout.IsSquare ? 104 : 172);
         }
 
         public void Request(RadarEditorAction action) => _requested = action;
         public RadarViewport GetViewport(Vector2 screen) => _hasPreview ? _preview : _layout.GetViewport(screen);
 
-        public void Update(Vector2 screen, long now)
+        public void Update(Vector2 screen, long now, bool allowHover = true)
         {
             if (_unavailable)
             {
@@ -56,12 +59,12 @@ namespace Radar
                 _requested = RadarEditorAction.None;
                 if (action == RadarEditorAction.Reset)
                 {
-                    _layout.Save(RadarLayout.Default(screen), screen);
-                    Chat.WriteLine("Radar: centred layout restored.");
+                    _layout.Save(_layout.DefaultViewport(screen), screen);
+                    Chat.WriteLine("Radar: " + Caption + " default restored.");
                 }
                 return;
             }
-            try { UpdateCore(screen, now); }
+            try { UpdateCore(screen, now, allowHover); }
             catch
             {
                 _unavailable = true;
@@ -70,7 +73,7 @@ namespace Radar
             }
         }
 
-        private void UpdateCore(Vector2 screen, long now)
+        private void UpdateCore(Vector2 screen, long now, bool allowHover)
         {
             float elapsed = _lastTime == 0 ? 16 : Math.Max(0, Math.Min(100, now - _lastTime));
             _lastTime = now;
@@ -84,8 +87,10 @@ namespace Radar
             {
                 // Preserve proportions, but defer native teardown and any dirty
                 // save until a focused UP confirms the gesture has ended.
-                _preview = RadarLayout.Fit(screen, _preview.CenterX / _screen.X * screen.X,
-                    _preview.CenterY / _screen.Y * screen.Y, _preview.Size / _screen.Y * screen.Y);
+                _preview = _layout.FitViewport(screen, _preview.CenterX / _screen.X * screen.X,
+                    _preview.CenterY / _screen.Y * screen.Y,
+                    _layout.IsSquare ? _preview.Width / _screen.Y * screen.Y : _preview.Width / _screen.X * screen.X,
+                    _preview.Height / _screen.Y * screen.Y);
                 _active = GripKind.None;
                 _armed = false;
                 _suspended = true;
@@ -150,7 +155,7 @@ namespace Radar
             bool manual = now < _manualUntil;
             bool dragging = _active != GripKind.None && valid && !_suspended;
 
-            if (valid && !pointer.Down && _armed && screen.X >= 240 && screen.Y >= 240 &&
+            if ((allowHover || manual) && valid && !pointer.Down && _armed && screen.X >= 240 && screen.Y >= 240 &&
                 (distance < ArmDistance || manual))
             {
                 // Arm before the pointer reaches the actual grip. Never create,
@@ -164,7 +169,12 @@ namespace Radar
                 }
             }
 
-            float proximity = Smooth(Clamp(1 - distance / RevealDistance, 0, 1));
+            if (!allowHover && !manual && !dragging && valid && !pointer.Down)
+            {
+                _move.Close();
+                _resize.Close();
+            }
+            float proximity = allowHover ? Smooth(Clamp(1 - distance / RevealDistance, 0, 1)) : 0;
             float target = dragging || manual ? 1 : valid ? proximity : 0;
             if (SaveFailed && valid)
                 target = Math.Max(target, 0.45f);
@@ -221,11 +231,15 @@ namespace Radar
             }
             else if (action == RadarEditorAction.Reset)
             {
-                SetPreview(RadarLayout.Default(_screen));
+                SetPreview(_layout.DefaultViewport(_screen));
+                // Reset must replace saved geometry even if screen clamping
+                // already makes a custom layout look like this default.
+                _dirty = true;
+                _revision++;
                 _needsPlace = true;
                 TrySave(true);
                 _manualUntil = now + 1600;
-                Chat.WriteLine(SaveFailed ? "Radar: centred preview could not be saved." : "Radar: centred layout restored.");
+                Chat.WriteLine("Radar: " + Caption + (SaveFailed ? " default could not be saved." : " default restored."));
             }
         }
 
@@ -278,8 +292,8 @@ namespace Radar
             float dx = current.MinX - _nativeOrigin.MinX, dy = current.MinY - _nativeOrigin.MinY;
             RadarViewport next;
             if (_active == GripKind.Move)
-                next = RadarLayout.Fit(_screen, _dragOrigin.CenterX + dx, _dragOrigin.CenterY + dy, _dragOrigin.Size);
-            else
+                next = _layout.FitViewport(_screen, _dragOrigin.CenterX + dx, _dragOrigin.CenterY + dy, _dragOrigin.Width, _dragOrigin.Height);
+            else if (_layout.IsSquare)
             {
                 // Project a corner drag onto a square's diagonal. Keep its upper
                 // left anchor and the radar circular; the outer ring stays100m.
@@ -287,13 +301,21 @@ namespace Radar
                 float size = Clamp(_dragOrigin.Size + (dx + dy) * 0.5f, Math.Min(160, maximum), maximum);
                 next = new RadarViewport { X = _dragOrigin.X, Y = _dragOrigin.Y, Size = size };
             }
+            else
+            {
+                float maxWidth = Math.Max(1, _screen.X - _layout.SideMargin - _dragOrigin.X);
+                float maxHeight = Math.Max(1, _screen.Y - _layout.BottomMargin - _dragOrigin.Y);
+                next = new RadarViewport { X = _dragOrigin.X, Y = _dragOrigin.Y,
+                    Width = Clamp(_dragOrigin.Width + dx, Math.Min(180, maxWidth), maxWidth),
+                    Height = Clamp(_dragOrigin.Height + dy, Math.Min(64, maxHeight), maxHeight) };
+            }
             SetPreview(next);
         }
 
         private void SetPreview(RadarViewport next)
         {
             if (Math.Abs(next.X - _preview.X) <= 0.05f && Math.Abs(next.Y - _preview.Y) <= 0.05f &&
-                Math.Abs(next.Size - _preview.Size) <= 0.05f)
+                Math.Abs(next.Width - _preview.Width) <= 0.05f && Math.Abs(next.Height - _preview.Height) <= 0.05f)
                 return;
             _preview = next;
             _dirty = true;
@@ -321,7 +343,7 @@ namespace Radar
             catch (Exception ex)
             {
                 SaveFailed = true;
-                Chat.WriteLine("Radar: layout could not be saved. The preview is retained; /radar lock retries, /radar cancel restores the saved layout. " + ex.Message);
+                Chat.WriteLine("Radar: " + Caption + " layout could not be saved. The preview is retained; /radar lock retries, /radar cancel restores the saved layout. " + ex.Message);
             }
         }
 
@@ -342,22 +364,33 @@ namespace Radar
             Opacity = 0;
         }
 
-        private Rect GripRect(GripKind kind)
+        private Rect GripRect(GripKind kind) => GripRect(kind, _preview, _screen);
+
+        private Rect GripRect(GripKind kind, RadarViewport viewport, Vector2 screen)
         {
-            Rect frame = Frame;
+            Rect frame = FrameFor(viewport);
             NativeGrip grip = kind == GripKind.Move ? _move : _resize;
             float x = kind == GripKind.Move ? (frame.MinX + frame.MaxX + 1 - grip.Width) * 0.5f :
                 frame.MaxX - 4 - grip.Width;
             float y = kind == GripKind.Move ? frame.MinY + 26 : frame.MaxY - 4 - NativeGrip.Height;
             // These are calibrated client coordinates. Leave room for the
             // original style0 native title/tab above them, including at edges.
-            x = Clamp(x, 8, _screen.X - grip.Width - 8);
-            y = Clamp(y, 32, _screen.Y - NativeGrip.Height - 8);
+            x = Clamp(x, 8, screen.X - grip.Width - 8);
+            y = Clamp(y, 32, screen.Y - NativeGrip.Height - 8);
             return new Rect(x, y, x + grip.Width - 1, y + NativeGrip.Height - 1);
         }
 
-        private static Rect FrameFor(RadarViewport viewport) => new Rect(
-            viewport.X - 12, viewport.Y - 44, viewport.X + viewport.Size + 11, viewport.Y + viewport.Size + 11);
+        private Rect FrameFor(RadarViewport viewport) => new Rect(
+            viewport.X - 12, viewport.Y - 44, viewport.X + viewport.Width + 11,
+            viewport.Y + viewport.Height + (_layout.IsSquare ? 11 : 43));
+
+        public float HoverDistance(Vector2 point, Vector2 screen)
+        {
+            RadarViewport viewport = GetViewport(screen);
+            return Math.Min(DistanceToPerimeter(point, FrameFor(viewport)), Math.Min(
+                DistanceToRect(point, NativeGrip.Footprint(GripRect(GripKind.Move, viewport, screen))),
+                DistanceToRect(point, NativeGrip.Footprint(GripRect(GripKind.Resize, viewport, screen)))));
+        }
 
         private static float DistanceToRect(Vector2 point, Rect rect)
         {
@@ -412,7 +445,7 @@ namespace Radar
                 if (_window != null)
                     return _ready && !_closing;
                 if (!File.Exists(_xml))
-                    throw new FileNotFoundException("The updated UI/RadarEditor.xml must accompany Radar1.0.16.", _xml);
+                    throw new FileNotFoundException("The updated UI/RadarEditor.xml must accompany Radar1.0.17.", _xml);
                 // Both are move-only native windows. A corner proxy's MOVE is
                 // interpreted as resize; it is never a miniature resizable UI.
                 _window = Window.CreateFromXml(_name, _xml, wanted, WindowStyle.Default,

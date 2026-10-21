@@ -16,9 +16,6 @@ namespace Radar
     {
         private const int RefreshMilliseconds = 250;
         private const int NoCategorySelection = -1;
-        private const float ColumnGap = 4;
-        private const float ScreenMargin = 8;
-        private const float ScrollbarWidth = 11;
         private static readonly Profession?[] Professions =
         {
             null, Profession.Adventurer, Profession.Agent, Profession.Bureaucrat,
@@ -38,13 +35,19 @@ namespace Radar
         private readonly ProfessionResolver _professions = new ProfessionResolver();
         private readonly RadarDisplay _radar = new RadarDisplay();
         private readonly RadarLayout _layout = new RadarLayout();
-        private RadarEditor _editor;
+        private readonly RadarLayout _categoryLayout = new RadarLayout(RadarPanelKind.Categories);
+        private readonly RadarLayout _entityLayout = new RadarLayout(RadarPanelKind.Entities);
+        private RadarEditor _editor, _categoryEditor, _entityEditor;
+        private RadarEditor[] _editors;
+        private RadarLayout[] _layouts;
         private readonly SelectedPlayerLabels _selectedLabels = new SelectedPlayerLabels();
         private readonly TextView[] _selectionMarkers = new TextView[CategoryCount];
         private readonly TextView[] _professionCounts = new TextView[CategoryCount];
         private readonly int[] _lastProfessionCounts = new int[CategoryCount];
         private List<RadarEntity> _entitiesToShow = new List<RadarEntity>();
         private TextView[] _entityHealth = new TextView[0];
+        private TextView[] _entitySelection = new TextView[0];
+        private Identity _listMarkerTarget = Identity.None;
         private string[] _lastEntityHealth = new string[0];
         private HudPanel _professionPanel;
         private HudPanel _playerPanel;
@@ -52,8 +55,6 @@ namespace Radar
         private View _playerContent;
         private ScrollView _professionScroll;
         private ScrollView _playerScroll;
-        private Vector2 _professionSize;
-        private Vector2 _playerSize;
         private bool _enabled = true;
         private bool _disposed;
         private bool _radarDrawingUnavailable;
@@ -72,6 +73,10 @@ namespace Radar
         public override void Run()
         {
             _editor = new RadarEditor(PluginDirectory, _layout);
+            _categoryEditor = new RadarEditor(PluginDirectory, _categoryLayout);
+            _entityEditor = new RadarEditor(PluginDirectory, _entityLayout);
+            _layouts = new[] { _layout, _categoryLayout, _entityLayout };
+            _editors = new[] { _editor, _categoryEditor, _entityEditor };
             _professionPanel = CreatePanel("RadarProfessions", "RadarProfessions.xml", true, BindProfessions);
             _playerPanel = CreatePanel("RadarPlayers", "RadarPlayers.xml", true, BindPlayers);
 
@@ -79,7 +84,7 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.16 loaded. Hover near the frame for Move/Resize grips; /radar reset restores the centre.");
+            Chat.WriteLine("Radar 1.0.17 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -111,7 +116,7 @@ namespace Radar
                 _lastProfessionCounts[i] = -1;
             }
 
-            _professionSize = PixelSize(_professionContent.CalculatePreferredSize(false));
+            _professionContent.CalculatePreferredSize(false);
             _lastSelection = int.MinValue;
         }
 
@@ -121,11 +126,14 @@ namespace Radar
                 !window.FindView("PlayerContent", out _playerContent))
                 throw new InvalidOperationException("Could not find Radar's player column.");
             _entityHealth = new TextView[_entitiesToShow.Count];
+            _entitySelection = new TextView[_entitiesToShow.Count];
+            _listMarkerTarget = Identity.None;
             _lastEntityHealth = new string[_entitiesToShow.Count];
             for (int i = 0; i < _entitiesToShow.Count; i++)
             {
                 ButtonBase button;
-                if (!window.FindView("Player" + i, out button))
+                if (!window.FindView("Player" + i, out button) ||
+                    !window.FindView("EntitySelected" + i, out _entitySelection[i]))
                     throw new InvalidOperationException("Could not find a Radar player choice.");
                 button.Tag = _entitiesToShow[i].Identity;
                 button.Clicked = OnPlayerClicked;
@@ -136,7 +144,7 @@ namespace Radar
 
             // The complete tree is loaded before it is attached to the window,
             // just like the working profession column.
-            _playerSize = PixelSize(_playerContent.CalculatePreferredSize(false));
+            _playerContent.CalculatePreferredSize(false);
         }
 
         private void OnPlayerClicked(object sender, ButtonBase button)
@@ -191,7 +199,8 @@ namespace Radar
                         _nextRefresh = 0;
                     }
                     if (_enabled)
-                        _editor.Request(action);
+                        foreach (RadarEditor editor in _editors)
+                            editor.Request(action);
                     return;
                 }
             }
@@ -269,27 +278,50 @@ namespace Radar
             if (!RadarLayout.Finite(screen.X) || !RadarLayout.Finite(screen.Y) || screen.X <= 0 || screen.Y <= 0)
                 return;
             EnsureLayout(character);
-            try
+            // Only the nearest idle frame arms grips. A native drag keeps its
+            // owner until release, even across another panel's hover halo.
+            RadarEditor owner = _editors.FirstOrDefault(editor => editor.Dragging);
+            RadarPointerSample pointer;
+            if (owner == null && RadarPointer.TryRead(screen, out pointer) && pointer.Inside)
+                owner = _editors.Where(editor => editor.Available)
+                    .OrderBy(editor => editor.HoverDistance(pointer.Position, screen)).FirstOrDefault();
+            foreach (RadarEditor editor in _editors.OrderBy(editor => ReferenceEquals(editor, owner) ? 0 : 1))
             {
-                _editor.Update(screen, _clock.ElapsedMilliseconds);
+                try { editor.Update(screen, _clock.ElapsedMilliseconds, ReferenceEquals(editor, owner)); }
+                catch (Exception ex)
+                {
+                    editor.Stop(false);
+                    Chat.WriteLine("Radar: " + editor.Caption + " grips unavailable. " + ex.Message);
+                }
             }
-            catch (Exception ex)
-            {
-                // A missing editor export/UI file must not take away the
-                // already working radar, name lists or selected target marker.
-                _editor.Stop(false);
-                Chat.WriteLine("Radar: layout editor unavailable; the radar itself is unchanged. " + ex.Message);
-            }
+            PlaceHudPanels(screen);
         }
 
         private void EnsureLayout(Identity character)
         {
-            // Save to the old character's path before Load changes the owner.
-            if (_layout.Character != character)
-                _editor?.Stop(true);
-            string warning = _layout.Load(character);
-            if (warning != null)
-                Chat.WriteLine(warning);
+            if (_layouts.Any(layout => layout.Character != character))
+                foreach (RadarEditor editor in _editors)
+                    editor.Stop(true); // Old character's files still own the saves.
+            foreach (RadarLayout layout in _layouts)
+            {
+                string warning = layout.Load(character);
+                if (warning != null)
+                    Chat.WriteLine(warning);
+            }
+        }
+
+        private void PlaceHudPanels(Vector2 screen)
+        {
+            if (_professionPanel.Ready)
+            {
+                RadarViewport viewport = _categoryEditor.GetViewport(screen);
+                _professionPanel.Place(viewport.X, viewport.Y, viewport.Width, viewport.Height, _professionScroll);
+            }
+            if (_playerPanel.Ready)
+            {
+                RadarViewport viewport = _entityEditor.GetViewport(screen);
+                _playerPanel.Place(viewport.X, viewport.Y, viewport.Width, viewport.Height, _playerScroll);
+            }
         }
 
         private void UpdateTargetSelection(Identity localIdentity)
@@ -421,7 +453,7 @@ namespace Radar
             bool playersReady = false;
             if (hasSelectedCategory)
             {
-                string names = _selectedEntity + "\n" +
+                string names = _selectedCategory + "\n" +
                     string.Join("\n", visibleEntities.Select(player => player.Identity + ":" + player.Label));
 
                 // The latest snapshot shares the XML's stable identity/order
@@ -434,7 +466,10 @@ namespace Radar
                 }
                 playersReady = _playerPanel.EnsureCreated();
                 if (playersReady)
+                {
                     RefreshEntityHealth();
+                    RefreshEntitySelection();
+                }
             }
             else
             {
@@ -452,24 +487,7 @@ namespace Radar
                 _lastSelection = _selectedCategory;
             }
 
-            float anchorX = screen.X * 0.25f;
-            float anchorY = screen.Y * 0.5f;
-            ColumnLayout professionLayout = LayoutColumn(_professionPanel, _professionScroll, _professionSize,
-                anchorX - ColumnGap, anchorY, anchorX - ColumnGap - ScreenMargin, screen.Y, true);
-
-            float namesCenterY = anchorY;
-            if (playersReady && !professionLayout.VerticalOverflow)
-            {
-                // All profession rows have the same fixed height in XML. Anchor
-                // the names to the selected row, using the panel's actual top.
-                float rowHeight = _professionSize.Y / CategoryCount;
-                namesCenterY = professionLayout.Top + rowHeight * (CategoryRow(_selectedCategory) + 0.5f);
-            }
-            // In a viewport too short for the profession menu, the SDK exposes
-            // no scroll offset. Keep the names on screen rather than guessing it.
-            if (playersReady)
-                LayoutColumn(_playerPanel, _playerScroll, _playerSize,
-                    anchorX + ColumnGap, namesCenterY, screen.X - ScreenMargin - anchorX - ColumnGap, screen.Y, false);
+            PlaceHudPanels(screen);
         }
 
         private static bool MatchesCategory(RadarEntity entity, int category)
@@ -483,17 +501,6 @@ namespace Radar
             return category >= 0 && category < Professions.Length &&
                 entity.Kind == RadarEntityKind.Player &&
                 (category == 0 || entity.Profession == Professions[category].Value);
-        }
-
-        private static int CategoryRow(int category)
-        {
-            if (category == NpcCategory)
-                return 1;
-            if (category == PetCategory)
-                return 2;
-            if (category == OtherCategory)
-                return CategoryCount - 1;
-            return category == 0 ? 0 : category + 2;
         }
 
         private void RefreshProfessionCounts(List<RadarEntity> players)
@@ -514,7 +521,7 @@ namespace Radar
                 changed = true;
             }
             if (changed)
-                _professionSize = PixelSize(_professionContent.CalculatePreferredSize(false));
+                _professionContent.CalculatePreferredSize(false);
         }
 
         private void RefreshEntityHealth()
@@ -535,7 +542,23 @@ namespace Radar
                 changed = true;
             }
             if (changed)
-                _playerSize = PixelSize(_playerContent.CalculatePreferredSize(false));
+                _playerContent.CalculatePreferredSize(false);
+        }
+
+        private void RefreshEntitySelection()
+        {
+            // Keep the native ScrollView and its position while the target
+            // changes within this roster. A fixed-width red marker changes only
+            // two rows; TextButtons retain their native XML colour states.
+            if (_listMarkerTarget == _selectedEntity)
+                return;
+            for (int i = 0; i < _entitiesToShow.Count; i++)
+            {
+                Identity identity = _entitiesToShow[i].Identity;
+                if (identity == _selectedEntity || identity == _listMarkerTarget)
+                    _entitySelection[i].Text = identity == _selectedEntity ? ">" : "";
+            }
+            _listMarkerTarget = _selectedEntity;
         }
 
         private string CreatePlayerXml(List<RadarEntity> players)
@@ -565,21 +588,28 @@ namespace Radar
                 button.SetAttribute("name", "Player" + i);
                 button.SetAttribute("text", players[i].Label);
                 button.SetAttribute("font", "SMALL");
-                string color = players[i].Identity == _selectedEntity ? "0x00FF0000" : "0x00FFFFFF";
+                string color = "0x00FFFFFF";
                 button.SetAttribute("color", color);
                 button.SetAttribute("hover_color", color);
                 button.SetAttribute("pressed_color", color);
                 button.SetAttribute("min_size", "Point(-1,13)");
                 button.SetAttribute("max_size", "Point(16000,13)");
-                if (players[i].Kind == RadarEntityKind.Player)
-                    content.AppendChild(button);
-                else
+                var row = xml.CreateElement("View");
+                row.SetAttribute("view_layout", "horizontal");
+                row.SetAttribute("min_size", "Point(-1,13)");
+                row.SetAttribute("max_size", "Point(16000,13)");
+                var selected = xml.CreateElement("TextView");
+                selected.SetAttribute("name", "EntitySelected" + i);
+                selected.SetAttribute("value", "");
+                selected.SetAttribute("font", "SMALL");
+                selected.SetAttribute("color", "0x00FF0000");
+                selected.SetAttribute("feature_flags", "TVF_RENDER_SHADOW");
+                selected.SetAttribute("min_size", "Point(7,13)");
+                selected.SetAttribute("max_size", "Point(7,13)");
+                row.AppendChild(selected);
+                row.AppendChild(button);
+                if (players[i].Kind != RadarEntityKind.Player)
                 {
-                    var row = xml.CreateElement("View");
-                    row.SetAttribute("view_layout", "horizontal");
-                    row.SetAttribute("min_size", "Point(-1,13)");
-                    row.SetAttribute("max_size", "Point(16000,13)");
-                    row.AppendChild(button);
                     var health = xml.CreateElement("TextView");
                     health.SetAttribute("name", "EntityHealth" + i);
                     health.SetAttribute("value", players[i].HealthLabel);
@@ -589,8 +619,8 @@ namespace Radar
                     health.SetAttribute("min_size", "Point(-1,13)");
                     health.SetAttribute("max_size", "Point(16000,13)");
                     row.AppendChild(health);
-                    content.AppendChild(row);
                 }
+                content.AppendChild(row);
             }
             return xml.OuterXml;
         }
@@ -646,7 +676,7 @@ namespace Radar
                     return;
                 Vector2 screen = Window.GetScreenSize();
                 _radar.Draw(screen, localPlayer.Identity,
-                    localPlayer.GlobalPosition, localPlayer.Forward, _selectedEntity, _editor.GetViewport(screen), _editor);
+                    localPlayer.GlobalPosition, localPlayer.Forward, _selectedEntity, _editor.GetViewport(screen), _editors);
             }
             catch (Exception ex)
             {
@@ -667,39 +697,6 @@ namespace Radar
             _followTargetCategory = false;
         }
 
-        private struct ColumnLayout
-        {
-            public float Top;
-            public bool VerticalOverflow;
-        }
-
-        private static ColumnLayout LayoutColumn(HudPanel panel, ScrollView scroll, Vector2 content,
-            float edgeX, float centerY, float maxWidth, float screenHeight, bool growsLeft)
-        {
-            maxWidth = Math.Max(1, maxWidth);
-            // Preserve symmetric growth about the anchor, scrolling before
-            // either half of the column would run beyond the screen margins.
-            float maxHeight = Math.Max(1, 2 * Math.Min(centerY - ScreenMargin,
-                screenHeight - ScreenMargin - centerY));
-            bool verticalOverflow = content.Y > maxHeight;
-            bool horizontalOverflow = content.X + (verticalOverflow ? ScrollbarWidth : 0) > maxWidth;
-            verticalOverflow |= content.Y + (horizontalOverflow ? ScrollbarWidth : 0) > maxHeight;
-            horizontalOverflow |= content.X + (verticalOverflow ? ScrollbarWidth : 0) > maxWidth;
-
-            float width = Math.Min(maxWidth, content.X + (verticalOverflow ? ScrollbarWidth : 0));
-            float height = Math.Min(maxHeight, content.Y + (horizontalOverflow ? ScrollbarWidth : 0));
-            float top = centerY - height * 0.5f;
-            panel.Place(growsLeft ? edgeX - width : edgeX, top, width, height, scroll);
-            return new ColumnLayout { Top = top, VerticalOverflow = verticalOverflow };
-        }
-
-        private static Vector2 PixelSize(Vector2 extent)
-        {
-            // AO's Rect/Point layout dimensions are inclusive extents.
-            return new Vector2(Math.Max(1, (float)Math.Ceiling(extent.X + 1)),
-                Math.Max(1, (float)Math.Ceiling(extent.Y + 1)));
-        }
-
         private void OnTeleportStarted(object sender, EventArgs args)
         {
             _nextRefresh = 0;
@@ -710,7 +707,9 @@ namespace Radar
 
         private void CloseOverlay()
         {
-            _editor?.Stop(true);
+            if (_editors != null)
+                foreach (RadarEditor editor in _editors)
+                    editor.Stop(true);
             _radar.Clear();
             _professionPanel?.Close();
             _playerPanel?.Close();
@@ -742,7 +741,7 @@ namespace Radar
             private const WindowStyle HudStyle = (WindowStyle)3;
             // Native flags 0x08/0x10/0x20 disable moving and resizing a HUD window.
             private const WindowFlags HudFlags = WindowFlags.NoExit | WindowFlags.NoFade |
-                WindowFlags.AutoScale | (WindowFlags)0x38;
+                (WindowFlags)0x38;
             private readonly string _name;
             private readonly string _path;
             private readonly bool _interactive;
@@ -762,6 +761,8 @@ namespace Radar
                 _interactive = interactive;
                 _bind = bind;
             }
+
+            public bool Ready => _window != null && _window.IsValid && !_closing;
 
             public bool EnsureCreated()
             {
