@@ -7,6 +7,7 @@ using System.Text;
 using System.Xml;
 using AOSharp.Common.GameData;
 using AOSharp.Common.GameData.UI;
+using AOSharp.Common.Unmanaged.Imports;
 using AOSharp.Core;
 using AOSharp.Core.UI;
 using SmokeLounge.AOtomation.Messaging.Messages;
@@ -48,6 +49,10 @@ namespace Radar
         private readonly TextView[] _professionCounts = new TextView[CategoryCount];
         private readonly int[] _lastProfessionCounts = new int[CategoryCount];
         private List<RadarEntity> _entitiesToShow = new List<RadarEntity>();
+        private List<RadarEntity> _latestEntities = new List<RadarEntity>();
+        private List<RadarEntity> _latestMatches = new List<RadarEntity>();
+        private Identity _snapshotOwner = Identity.None;
+        private int _snapshotCategory = int.MinValue;
         private TextView[] _entityHealth = new TextView[0];
         private TextView[] _entitySelection = new TextView[0];
         private Identity _listMarkerTarget = Identity.None;
@@ -61,10 +66,12 @@ namespace Radar
         private ScrollView _playerScroll;
         private ScrollView _targetScroll;
         private bool _enabled = true;
+        private bool _visible = true;
         private bool _disposed;
         private bool _radarDrawingUnavailable;
         private bool _selectedLabelsUnavailable;
         private bool _targetInfoUnavailable;
+        private bool _targetDataUnavailable;
         private int _selectedCategory = NoCategorySelection;
         private int _lastSelection = int.MinValue;
         private string _lastNames;
@@ -90,16 +97,18 @@ namespace Radar
             _targetPanel.ReplaceXml(_targetInspector.CreateXml(PluginDirectory));
 
             RefreshOverlay();
+            if (!Game.IsZoning && DynelManager.LocalPlayer != null)
+                UpdateTargetInspector();
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
             Network.N3MessageReceived += OnCombatMessage;
-            Chat.WriteLine("Radar 1.0.25 loaded. No category = full overview; click a category to filter. AO targets keep the current filter. /radar reset restores all four layouts.");
+            Chat.WriteLine("Radar 1.0.26 loaded. /radar on/off shows/hides the HUD; background collection continues. No category = full overview. /radar reset restores all four layouts.");
         }
 
         private void OnCombatMessage(object sender, N3Message message)
         {
-            if (_disposed || !_enabled || _radarDrawingUnavailable || Game.IsZoning)
+            if (_disposed || !_enabled || Game.IsZoning)
                 return;
             // Only managed identities/timing are copied here. The SDK invokes
             // this before OnUpdate; no dynel access, requests or drawing in intake.
@@ -149,21 +158,41 @@ namespace Radar
 
         private void UpdateTargetInspector()
         {
-            if (_targetInfoUnavailable)
+            if (_targetDataUnavailable)
+                return;
+            try
+            {
+                // Collection is independent of native windows and visibility.
+                _targetInspector.Update(_clock.ElapsedMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                _targetDataUnavailable = true;
+                _targetInspector.Clear();
+                _targetInspector.Unbind();
+                _targetPanel.Close();
+                Chat.WriteLine("Radar: target data unavailable. " + ex.Message);
+                return;
+            }
+            PresentTargetInspector();
+        }
+
+        private void PresentTargetInspector()
+        {
+            if (!_visible || _targetInfoUnavailable || _targetDataUnavailable)
                 return;
             try
             {
                 if (_targetPanel.EnsureCreated())
-                    _targetInspector.Update(_clock.ElapsedMilliseconds);
+                    _targetInspector.RefreshViews();
             }
             catch (Exception ex)
             {
-                // An optional inspector failure must not disable the radar.
+                // A display failure leaves the background data collector running.
                 _targetInfoUnavailable = true;
-                _targetInspector.Clear();
                 _targetInspector.Unbind();
                 _targetPanel.Close();
-                Chat.WriteLine("Radar: target inspector unavailable. " + ex.Message);
+                Chat.WriteLine("Radar: target inspector display unavailable. " + ex.Message);
             }
         }
 
@@ -196,7 +225,7 @@ namespace Radar
 
         private void OnPlayerClicked(object sender, ButtonBase button)
         {
-            if (_disposed || !_enabled || _selectedCategory == NoCategorySelection)
+            if (_disposed || !_enabled || !_visible || _selectedCategory == NoCategorySelection)
                 return;
 
             // Defer native UI changes until the click callback has returned.
@@ -206,7 +235,7 @@ namespace Radar
 
         private void OnProfessionClicked(object sender, ButtonBase button)
         {
-            if (_disposed || !_enabled)
+            if (_disposed || !_enabled || !_visible)
                 return;
 
             int profession = (int)button.Tag;
@@ -239,25 +268,26 @@ namespace Radar
                     action = RadarEditorAction.None;
                 if (action != RadarEditorAction.None)
                 {
-                    if (action == RadarEditorAction.Edit)
+                    try
                     {
-                        _enabled = true;
-                        _nextRefresh = 0;
+                        if (action == RadarEditorAction.Edit)
+                            SetVisibility(true);
+                        if (_enabled)
+                            foreach (RadarEditor editor in _editors)
+                                editor.Request(action);
                     }
-                    if (_enabled)
-                        foreach (RadarEditor editor in _editors)
-                            editor.Request(action);
+                    catch (Exception ex) { DisableAfterError(ex); }
                     return;
                 }
             }
 
-            bool enabled;
+            bool visible;
             if (args.Length == 0)
-                enabled = !_enabled;
+                visible = !_visible;
             else if (args.Length == 1 && string.Equals(args[0], "on", StringComparison.OrdinalIgnoreCase))
-                enabled = true;
+                visible = true;
             else if (args.Length == 1 && string.Equals(args[0], "off", StringComparison.OrdinalIgnoreCase))
-                enabled = false;
+                visible = false;
             else
             {
                 Chat.WriteLine("Usage: /radar [on|off|edit|lock|reset|cancel]");
@@ -266,23 +296,46 @@ namespace Radar
 
             try
             {
-                _enabled = enabled;
-                _nextRefresh = 0;
-                if (_enabled)
-                    RefreshOverlay();
-                else
-                {
-                    ClearEntitySelection();
-                    _professions.Clear();
-                    CloseOverlay();
-                }
-
-                Chat.WriteLine(_enabled ? "Radar: on." : "Radar: off.");
+                SetVisibility(visible);
+                Chat.WriteLine(_visible ? "Radar: shown." : _enabled ?
+                    "Radar: hidden; background updates continue." :
+                    "Radar: hidden; processing stopped after an error. /radar on retries.");
             }
             catch (Exception ex)
             {
                 DisableAfterError(ex);
             }
+        }
+
+        private void SetVisibility(bool visible)
+        {
+            bool wasVisible = _visible;
+            _visible = visible;
+            _professionPanel.SetVisible(visible);
+            _playerPanel.SetVisible(visible);
+            _targetPanel.SetVisible(visible);
+            if (!visible)
+            {
+                // Cancel a deferred UI click, retaining the real AO target/filter.
+                _pendingEntity = Identity.None;
+                _hasPendingEntity = false;
+                if (wasVisible)
+                    foreach (RadarEditor editor in _editors)
+                        editor.Hide();
+                return;
+            }
+
+            _enabled = true; // Explicit show also retries a previous processing error.
+            var local = DynelManager.LocalPlayer;
+            if (Game.IsZoning || local == null)
+                return;
+            EnsureLayout(local.Identity);
+            UpdateTargetSelection(local.Identity);
+            UpdateTargetInspector();
+            if (_snapshotOwner == local.Identity && _snapshotCategory == _selectedCategory)
+                RefreshHud(); // Reuse the latest collected roster and resolver state.
+            else
+                RefreshOverlay();
         }
 
         private void OnUpdate(object sender, float deltaTime)
@@ -299,9 +352,10 @@ namespace Radar
                     return;
                 }
 
-                UpdateEditor(localPlayer.Identity);
+                EnsureLayout(localPlayer.Identity);
                 UpdateTargetSelection(localPlayer.Identity);
                 UpdateTargetInspector();
+                _radar.ExpireCombat(_clock.ElapsedMilliseconds);
 
                 if (_clock.ElapsedMilliseconds >= _nextRefresh)
                 {
@@ -309,7 +363,10 @@ namespace Radar
                     RefreshOverlay();
                 }
 
-                // Qubit draws on every update, independently of its roster refresh.
+                if (!_visible)
+                    return;
+                UpdateEditor(localPlayer.Identity);
+                // Drawing remains independent of the roster refresh rate.
                 DrawSelectedEntity();
                 DrawCentreRadar();
             }
@@ -350,8 +407,11 @@ namespace Radar
             {
                 foreach (RadarEditor editor in _editors)
                     editor.Stop(true); // Old character's files still own the saves.
+                ClearEntitySelection();
+                _professions.Clear();
                 _targetInspector.Clear();
-                _radar.ClearCombat();
+                _radar.Clear();
+                ClearSnapshots();
             }
             foreach (RadarLayout layout in _layouts)
             {
@@ -363,6 +423,8 @@ namespace Radar
 
         private void PlaceHudPanels(Vector2 screen)
         {
+            if (!_visible)
+                return;
             if (_professionPanel.Ready)
             {
                 RadarViewport viewport = _categoryEditor.GetViewport(screen);
@@ -431,16 +493,7 @@ namespace Radar
                 return;
             }
 
-            Vector2 screen = Window.GetScreenSize();
-            if (screen.X <= 0 || screen.Y <= 0)
-                return;
-
             EnsureLayout(localPlayer.Identity);
-            if (!_targetPanel.Ready)
-                UpdateTargetInspector();
-
-            if (!_professionPanel.EnsureCreated())
-                return;
 
             // Keep display data separate from live dynel wrappers. Only
             // players go through profession resolution and its InfoRequests.
@@ -464,8 +517,6 @@ namespace Radar
             }
             _professions.EndRefresh(_clock.ElapsedMilliseconds);
 
-            RefreshProfessionCounts(entities);
-
             bool hasSelectedCategory = _selectedCategory != NoCategorySelection;
             var visibleEntities = entities
                 .Where(entity => MatchesCategory(entity, _selectedCategory))
@@ -475,9 +526,35 @@ namespace Radar
                 .ThenBy(entity => entity.Identity.Type)
                 .ThenBy(entity => entity.Identity.Instance)
                 .ToList();
+            _latestEntities = entities;
+            _latestMatches = visibleEntities;
+            _snapshotOwner = localPlayer.Identity;
+            _snapshotCategory = _selectedCategory;
             if (_selectedEntity != Identity.None && !entities.Any(entity => entity.Identity == _selectedEntity))
                 ClearEntitySelection();
             _radar.SetEntities(visibleEntities.Select(entity => entity.Identity), !hasSelectedCategory);
+
+            if (_visible)
+                RefreshHud();
+        }
+
+        private void RefreshHud()
+        {
+            if (!_visible || Game.IsZoning)
+                return;
+            var local = DynelManager.LocalPlayer;
+            if (local == null || _snapshotOwner != local.Identity || _snapshotCategory != _selectedCategory)
+                return;
+            Vector2 screen = Window.GetScreenSize();
+            if (screen.X <= 0 || screen.Y <= 0)
+                return;
+
+            PresentTargetInspector();
+            if (!_professionPanel.EnsureCreated())
+                return;
+            RefreshProfessionCounts(_latestEntities);
+            bool hasSelectedCategory = _selectedCategory != NoCategorySelection;
+            List<RadarEntity> visibleEntities = _latestMatches;
 
             bool playersReady = false;
             if (hasSelectedCategory)
@@ -755,11 +832,24 @@ namespace Radar
             _targetInspector.Clear();
             _targetInspector.Unbind();
             _targetPanel?.Close();
+            ClearSnapshots();
+        }
+
+        private void ClearSnapshots()
+        {
+            _snapshotOwner = Identity.None;
+            _snapshotCategory = int.MinValue;
+            _latestEntities.Clear();
+            _latestMatches.Clear();
+            _entitiesToShow.Clear();
+            _lastNames = null;
+            _nextRefresh = 0;
         }
 
         private void DisableAfterError(Exception ex)
         {
             _enabled = false;
+            _visible = false;
             ClearEntitySelection();
             _professions.Clear();
             CloseOverlay();
@@ -770,6 +860,7 @@ namespace Radar
         {
             _disposed = true;
             _enabled = false;
+            _visible = false;
             ClearEntitySelection();
             Game.OnUpdate -= OnUpdate;
             Game.TeleportStarted -= OnTeleportStarted;
@@ -792,6 +883,7 @@ namespace Radar
             private string _xml;
             private Window _window;
             private bool _closing;
+            private bool _wantedVisible = true;
             private float _width = -1;
             private float _height = -1;
             private float _x = -1;
@@ -809,6 +901,8 @@ namespace Radar
 
             public bool EnsureCreated()
             {
+                if (!_wantedVisible)
+                    return false;
                 if (_window != null && !_window.IsValid)
                 {
                     _window = null;
@@ -863,6 +957,8 @@ namespace Radar
 
             public void Place(float x, float y, float width, float height, View viewport = null)
             {
+                if (!_wantedVisible || !Ready)
+                    return;
                 if (width != _width || height != _height)
                 {
                     var extent = new Vector2(width - 1, height - 1);
@@ -879,6 +975,17 @@ namespace Radar
                     _y = y;
                 }
                 _window.Show(true);
+            }
+
+            public void SetVisible(bool visible)
+            {
+                _wantedVisible = visible;
+                if (!visible && _window != null && _window.IsValid)
+                {
+                    // SDK Window.Show(false) skips an already-visible window.
+                    // Use its existing public native import without closing it.
+                    Window_c.Show(_window.Pointer, false);
+                }
             }
 
             public void Close()

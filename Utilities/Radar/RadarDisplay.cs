@@ -40,6 +40,7 @@ namespace Radar
         }
 
         public void ObserveCombat(N3Message message, long now) => _combat.Observe(message, now);
+        public void ExpireCombat(long now) => _combat.Expire(now);
         public void ClearCombat()
         {
             _combat.Clear();

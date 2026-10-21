@@ -195,7 +195,6 @@ namespace Radar
             if (Game.IsZoning || local == null || target == null || !target.IsValid)
             {
                 if (_hasTarget) Clear();
-                Flush();
                 return;
             }
             Identity identity = target.Identity;
@@ -235,8 +234,11 @@ namespace Radar
             Dynel current = Targeting.Target;
             if (!target.IsValid || current == null || !current.IsValid || current.Identity != identity)
                 Clear();
-            Flush();
         }
+
+        // Called only by the visible presentation path; Update keeps collecting
+        // into bounded managed fields while existing native views are hidden.
+        public void RefreshViews() => Flush();
 
         private void CaptureLive(Dynel target, SimpleChar local)
         {

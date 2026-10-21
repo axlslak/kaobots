@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using AOSharp.Common.GameData;
 using AOSharp.Common.GameData.UI;
+using AOSharp.Common.Unmanaged.Imports;
 using AOSharp.Core;
 using AOSharp.Core.UI;
 
@@ -347,6 +348,25 @@ namespace Radar
             }
         }
 
+        public void Hide()
+        {
+            // Hiding is reversible. Retry a dirty save, retaining the validated
+            // preview/error if it fails instead of discarding the user's layout.
+            TrySave(true);
+            _move.Hide();
+            _resize.Hide();
+            _move.Close();
+            _resize.Close();
+            _active = GripKind.None;
+            _armed = _suspended = false;
+            _recreateGrips = false;
+            _lastTime = _awaySince = _manualUntil = _motionUntil = 0;
+            _inputWindow = IntPtr.Zero;
+            _needsPlace = true;
+            Moving = Resizing = false;
+            Opacity = 0;
+        }
+
         public void Stop(bool save)
         {
             if (save)
@@ -491,6 +511,12 @@ namespace Radar
             {
                 if (_ready && !_closing && _window != null && _window.IsValid)
                     _window.SetAlpha(alpha);
+            }
+
+            public void Hide()
+            {
+                if (_window != null && _window.IsValid)
+                    Window_c.Show(_window.Pointer, false);
             }
 
             public void Close()
