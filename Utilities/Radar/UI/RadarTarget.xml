@@ -1,0 +1,18 @@
+<?xml version="1.0" standalone="yes"?>
+<root>
+  <View name="TargetRoot" view_layout="vertical" h_alignment="LEFT">
+    <View view_layout="horizontal" v_alignment="TOP" view_flags="1"
+          min_size="Point(-1,13)" max_size="Point(16000,13)">
+      <TextView name="TargetTitle" value="Target: select something in AO" font="SMALL"
+                color="0x00FFFFFF" feature_flags="TVF_RENDER_SHADOW" view_flags="1"
+                min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
+      <HLayoutSpacer />
+    </View>
+    <ScrollView name="TargetScroll" scroll_client="TargetScrollClient"
+                v_scrollbar_mode="auto" h_scrollbar_mode="auto" min_size="Point(0,0)">
+      <ScrollViewChild name="TargetScrollClient">
+        <View name="TargetContent" view_layout="vertical" h_alignment="LEFT" />
+      </ScrollViewChild>
+    </ScrollView>
+  </View>
+</root>

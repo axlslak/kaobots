@@ -37,7 +37,9 @@ namespace Radar
         private readonly RadarLayout _layout = new RadarLayout();
         private readonly RadarLayout _categoryLayout = new RadarLayout(RadarPanelKind.Categories);
         private readonly RadarLayout _entityLayout = new RadarLayout(RadarPanelKind.Entities);
-        private RadarEditor _editor, _categoryEditor, _entityEditor;
+        private readonly RadarLayout _targetLayout = new RadarLayout(RadarPanelKind.Target);
+        private readonly TargetInspector _targetInspector = new TargetInspector();
+        private RadarEditor _editor, _categoryEditor, _entityEditor, _targetEditor;
         private RadarEditor[] _editors;
         private RadarLayout[] _layouts;
         private readonly SelectedPlayerLabels _selectedLabels = new SelectedPlayerLabels();
@@ -51,14 +53,17 @@ namespace Radar
         private string[] _lastEntityHealth = new string[0];
         private HudPanel _professionPanel;
         private HudPanel _playerPanel;
+        private HudPanel _targetPanel;
         private View _professionContent;
         private View _playerContent;
         private ScrollView _professionScroll;
         private ScrollView _playerScroll;
+        private ScrollView _targetScroll;
         private bool _enabled = true;
         private bool _disposed;
         private bool _radarDrawingUnavailable;
         private bool _selectedLabelsUnavailable;
+        private bool _targetInfoUnavailable;
         private int _selectedCategory = NoCategorySelection;
         private int _lastSelection = int.MinValue;
         private string _lastNames;
@@ -75,16 +80,20 @@ namespace Radar
             _editor = new RadarEditor(PluginDirectory, _layout);
             _categoryEditor = new RadarEditor(PluginDirectory, _categoryLayout);
             _entityEditor = new RadarEditor(PluginDirectory, _entityLayout);
-            _layouts = new[] { _layout, _categoryLayout, _entityLayout };
-            _editors = new[] { _editor, _categoryEditor, _entityEditor };
+            _targetEditor = new RadarEditor(PluginDirectory, _targetLayout);
+            _layouts = new[] { _layout, _categoryLayout, _entityLayout, _targetLayout };
+            _editors = new[] { _editor, _categoryEditor, _entityEditor, _targetEditor };
             _professionPanel = CreatePanel("RadarProfessions", "RadarProfessions.xml", true, BindProfessions);
             _playerPanel = CreatePanel("RadarPlayers", "RadarPlayers.xml", true, BindPlayers);
+            _targetPanel = CreatePanel("RadarTarget", "RadarTarget.xml", true, BindTargetInspector);
+            // The inspector's complete tree is created once, never per target.
+            _targetPanel.ReplaceXml(_targetInspector.CreateXml(PluginDirectory));
 
             RefreshOverlay();
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.22 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
+            Chat.WriteLine("Radar 1.0.23 loaded. Target info above, categories left, entities right. Hover frames to move/resize; /radar reset restores all four.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -118,6 +127,33 @@ namespace Radar
 
             _professionContent.CalculatePreferredSize(false);
             _lastSelection = int.MinValue;
+        }
+
+        private void BindTargetInspector(Window window)
+        {
+            if (!window.FindView("TargetScroll", out _targetScroll))
+                throw new InvalidOperationException("Could not find Radar's target scroll view.");
+            _targetInspector.Bind(window);
+        }
+
+        private void UpdateTargetInspector()
+        {
+            if (_targetInfoUnavailable)
+                return;
+            try
+            {
+                if (_targetPanel.EnsureCreated())
+                    _targetInspector.Update(_clock.ElapsedMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                // An optional inspector failure must not disable the radar.
+                _targetInfoUnavailable = true;
+                _targetInspector.Clear();
+                _targetInspector.Unbind();
+                _targetPanel.Close();
+                Chat.WriteLine("Radar: target inspector unavailable. " + ex.Message);
+            }
         }
 
         private void BindPlayers(Window window)
@@ -255,6 +291,7 @@ namespace Radar
 
                 UpdateEditor(localPlayer.Identity);
                 UpdateTargetSelection(localPlayer.Identity);
+                UpdateTargetInspector();
 
                 if (_clock.ElapsedMilliseconds >= _nextRefresh)
                 {
@@ -300,8 +337,11 @@ namespace Radar
         private void EnsureLayout(Identity character)
         {
             if (_layouts.Any(layout => layout.Character != character))
+            {
                 foreach (RadarEditor editor in _editors)
                     editor.Stop(true); // Old character's files still own the saves.
+                _targetInspector.Clear();
+            }
             foreach (RadarLayout layout in _layouts)
             {
                 string warning = layout.Load(character);
@@ -321,6 +361,11 @@ namespace Radar
             {
                 RadarViewport viewport = _entityEditor.GetViewport(screen);
                 _playerPanel.Place(viewport.X, viewport.Y, viewport.Width, viewport.Height, _playerScroll);
+            }
+            if (_targetPanel.Ready)
+            {
+                RadarViewport viewport = _targetEditor.GetViewport(screen);
+                _targetPanel.Place(viewport.X, viewport.Y, viewport.Width, viewport.Height, _targetScroll);
             }
         }
 
@@ -406,6 +451,8 @@ namespace Radar
                 return;
 
             EnsureLayout(localPlayer.Identity);
+            if (!_targetPanel.Ready)
+                UpdateTargetInspector();
 
             if (!_professionPanel.EnsureCreated())
                 return;
@@ -723,6 +770,9 @@ namespace Radar
             _radar.Clear();
             _professionPanel?.Close();
             _playerPanel?.Close();
+            _targetInspector.Clear();
+            _targetInspector.Unbind();
+            _targetPanel?.Close();
         }
 
         private void DisableAfterError(Exception ex)

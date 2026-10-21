@@ -12,6 +12,7 @@
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -49,6 +50,7 @@
     <Compile Include="RadarPointer.cs" />
     <Compile Include="RadarEntity.cs" />
     <Compile Include="SelectedPlayerLabels.cs" />
+    <Compile Include="TargetInspector.cs" />
     <Compile Include="ProfessionResolver.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Content Include="UI\RadarEditor.xml">
@@ -61,6 +63,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="UI\RadarPlayers.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="UI\RadarTarget.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Include="packages.config" />

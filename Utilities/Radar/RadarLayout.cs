@@ -6,7 +6,7 @@ using AOSharp.Common.GameData;
 
 namespace Radar
 {
-    internal enum RadarPanelKind { Radar, Categories, Entities }
+    internal enum RadarPanelKind { Radar, Categories, Entities, Target }
 
     internal struct RadarViewport
     {
@@ -39,7 +39,8 @@ namespace Radar
                 return null;
             _character = character;
             _saved = false;
-            string file = IsSquare ? "layout.xml" : Kind == RadarPanelKind.Categories ? "categories.xml" : "entities.xml";
+            string file = IsSquare ? "layout.xml" : Kind == RadarPanelKind.Categories ? "categories.xml" :
+                Kind == RadarPanelKind.Entities ? "entities.xml" : "target.xml";
             _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "AOSharp", "Radar", character.Instance.ToString("X8", CultureInfo.InvariantCulture), file);
             try
@@ -86,6 +87,15 @@ namespace Radar
             if (IsSquare)
                 return Default(screen);
             RadarViewport radar = Default(screen);
+            if (Kind == RadarPanelKind.Target)
+            {
+                // Leave room for both panels' native Move/Resize grips. On
+                // short displays FitViewport keeps controls reachable instead.
+                float bottom = radar.Y - 44 - 16 - 43;
+                float targetHeight = Math.Min(112, Math.Max(64, bottom - 52));
+                return FitViewport(screen, screen.X * 0.5f, bottom - targetHeight * 0.5f,
+                    Math.Min(760, Math.Max(1, screen.X - 32)), targetHeight);
+            }
             float gap = screen.X >= 1000 ? 48 : 24;
             float width = Kind == RadarPanelKind.Categories ? 200 : 380;
             float height = Kind == RadarPanelKind.Categories ? Math.Min(280, screen.Y * 0.4f) : Math.Min(480, screen.Y * 0.44f);
