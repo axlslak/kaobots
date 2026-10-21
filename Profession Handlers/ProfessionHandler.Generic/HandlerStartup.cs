@@ -1,5 +1,4 @@
 using System;
-using AOSharp.Core;
 
 namespace ProfessionHandler.Generic
 {
@@ -19,8 +18,6 @@ namespace ProfessionHandler.Generic
         public static void Start(Action initialize)
         {
             EnsureAvailable();
-            if (Game.IsNewEngine)
-                throw new NotSupportedException("Profession handlers do not support this engine.");
 
             _starting = true;
             _failure = null;

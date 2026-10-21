@@ -14,12 +14,14 @@ Credit to **Knowidea / never-knows-best (Know)** and all original contributors. 
 
 ## Versions
 
-- In-game handler and settings version: **2.45**. The footer reports the source revision independently of saved preferences.
-- Profession handler file versions: **1.0.4.0**; assembly identities remain unchanged for compatibility.
+- In-game handler and settings version: **2.48**. The footer reports the source revision independently of saved preferences.
+- Profession handler file versions: **1.0.7.0**; assembly identities remain unchanged for compatibility.
 - HelpManager: **2.0.9**.
 - Manager Sync: **2.0.12**.
 
 ## Status and known issues
+
+Profession handlers now attempt normal initialization on both the classic and new engines, including when selected through Handler (Auto). Duplicate-handler protection and initialization failure reporting remain active. New-engine gameplay is not yet validated; successful loading alone does not confirm casts, perks, items, pets or UI behavior.
 
 This is a source import, not a packaged release. No build or test run was performed for this import. Earlier in-game use confirmed pet buffing and Agent raid snaring, but the complete imported set has not been validated together.
 
