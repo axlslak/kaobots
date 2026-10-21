@@ -84,7 +84,7 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.18 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
+            Chat.WriteLine("Radar 1.0.19 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -580,8 +580,8 @@ namespace Radar
                 empty.SetAttribute("font", "SMALL");
                 empty.SetAttribute("color", "0x00FFFFFF");
                 empty.SetAttribute("feature_flags", "TVF_RENDER_SHADOW");
-                empty.SetAttribute("min_size", "Point(-1,13)");
-                empty.SetAttribute("max_size", "Point(-1,13)");
+                empty.SetAttribute("min_size", "Point(-1,-1)");
+                empty.SetAttribute("max_size", "Point(-1,-1)");
                 content.AppendChild(empty);
             }
             for (int i = 0; i < players.Count; i++)
@@ -594,10 +594,11 @@ namespace Radar
                 button.SetAttribute("color", color);
                 button.SetAttribute("hover_color", color);
                 button.SetAttribute("pressed_color", color);
-                button.SetAttribute("min_size", "Point(-1,13)");
-                button.SetAttribute("max_size", "Point(-1,13)");
+                button.SetAttribute("min_size", "Point(-1,-1)");
+                button.SetAttribute("max_size", "Point(-1,-1)");
                 var row = xml.CreateElement("View");
                 row.SetAttribute("view_layout", "horizontal");
+                row.SetAttribute("v_alignment", "TOP");
                 row.SetAttribute("min_size", "Point(-1,13)");
                 row.SetAttribute("max_size", "Point(16000,13)");
                 var selected = xml.CreateElement("TextView");
@@ -606,8 +607,8 @@ namespace Radar
                 selected.SetAttribute("font", "SMALL");
                 selected.SetAttribute("color", "0x00FF0000");
                 selected.SetAttribute("feature_flags", "TVF_RENDER_SHADOW");
-                selected.SetAttribute("min_size", "Point(7,13)");
-                selected.SetAttribute("max_size", "Point(7,13)");
+                selected.SetAttribute("min_size", "Point(7,-1)");
+                selected.SetAttribute("max_size", "Point(7,-1)");
                 row.AppendChild(selected);
                 row.AppendChild(button);
                 if (players[i].Kind != RadarEntityKind.Player)
@@ -618,11 +619,12 @@ namespace Radar
                     health.SetAttribute("font", "SMALL");
                     health.SetAttribute("color", color);
                     health.SetAttribute("feature_flags", "TVF_RENDER_SHADOW");
-                    health.SetAttribute("min_size", "Point(-1,13)");
-                    health.SetAttribute("max_size", "Point(-1,13)");
+                    health.SetAttribute("min_size", "Point(-1,-1)");
+                    health.SetAttribute("max_size", "Point(-1,-1)");
                     row.AppendChild(health);
                 }
-                // Keep text at its preferred width; only the spacer fills the viewport.
+                // Text uses native font metrics inside the fixed-pitch row.
+                // Only the spacer fills spare horizontal viewport space.
                 row.AppendChild(xml.CreateElement("HLayoutSpacer"));
                 content.AppendChild(row);
             }
