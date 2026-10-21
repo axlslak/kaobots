@@ -126,6 +126,7 @@ namespace ProfessionHandler.Generic
 
               
 
+                new FileInfo(_savePath).Directory.Create();
                 File.WriteAllText(_savePath, JsonConvert.SerializeObject(_storedValues, Formatting.Indented));
 
                 foreach (var kvp in _storedValues)

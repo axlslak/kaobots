@@ -14,12 +14,14 @@ Credit to **Knowidea / never-knows-best (Know)** and all original contributors. 
 
 ## Versions
 
-- In-game handler and settings version: **2.48**. The footer reports the source revision independently of saved preferences.
-- Profession handler file versions: **1.0.7.0**; assembly identities remain unchanged for compatibility.
+- In-game handler and settings version: **2.49**. The footer reports the source revision independently of saved preferences.
+- Profession handler file versions: **1.0.8.0**; assembly identities remain unchanged for compatibility.
 - HelpManager: **2.0.9**.
 - Manager Sync: **2.0.12**.
 
 ## Status and known issues
+
+First-run handler initialization creates the character's AOSharp preferences directory before writing the settings file. The path still comes from the client, and existing settings values are preserved.
 
 Profession handlers now attempt normal initialization on both the classic and new engines, including when selected through Handler (Auto). Duplicate-handler protection and initialization failure reporting remain active. New-engine gameplay is not yet validated; successful loading alone does not confirm casts, perks, items, pets or UI behavior.
 
