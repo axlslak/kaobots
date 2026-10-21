@@ -27,17 +27,16 @@ namespace Radar
         private readonly Dictionary<Identity, Dynel> _combatLoaded = new Dictionary<Identity, Dynel>();
         private readonly Dictionary<Identity, Marker> _combatMarkers = new Dictionary<Identity, Marker>();
         private readonly ScreenLines _lines = new ScreenLines();
-        private bool _showCombat;
+        private bool _overview = true;
         private float _forwardX;
         private float _forwardZ = 1;
 
-        public void SetEntities(IEnumerable<Identity> entities, bool showCombat)
+        public void SetEntities(IEnumerable<Identity> entities, bool overview)
         {
             _entities.Clear();
             foreach (Identity identity in entities)
                 _entities.Add(identity);
-            _showCombat = showCombat;
-            if (!showCombat) ClearCombat();
+            _overview = overview;
         }
 
         public void ObserveCombat(N3Message message, long now) => _combat.Observe(message, now);
@@ -53,7 +52,7 @@ namespace Radar
         public void Clear()
         {
             _entities.Clear();
-            _showCombat = false;
+            _overview = true;
             ClearCombat();
             _forwardX = 0;
             _forwardZ = 1;
@@ -95,23 +94,26 @@ namespace Radar
             Cardinal('W', -1, 0, cx, cy, radius);
 
             // Tiny moving strokes stay below the familiar arrows and edit chrome.
-            if (_showCombat && _combat.Count > 0)
+            if (_combat.Count > 0)
                 DrawCombat(localIdentity, selectedEntity, localPosition, cx, cy, radius, now);
 
             // Cache only filter membership. Read current loaded poses every
             // engine update, so movement/turning does not step at the UI rate.
+            // These wrappers already belong to this frame's AllDynels snapshot;
+            // VehiclePointer is the remaining SDK IsValid condition. Avoid its
+            // redundant full-list search for every marker in the overview.
             Dynel selected = null;
             foreach (var entity in DynelManager.AllDynels)
             {
                 if (entity.Identity == localIdentity ||
-                    (entity.Identity != selectedEntity && !_entities.Contains(entity.Identity)) || !entity.IsValid)
+                    (!_overview && entity.Identity != selectedEntity && !_entities.Contains(entity.Identity)) || entity.VehiclePointer == IntPtr.Zero)
                     continue;
                 if (entity.Identity == selectedEntity)
                     selected = entity;
                 else
                     Entity(entity, localPosition, cx, cy, radius, Yellow);
             }
-            if (selected != null && selected.IsValid)
+            if (selected != null && selected.VehiclePointer != IntPtr.Zero)
                 Entity(selected, localPosition, cx, cy, radius, Red);
 
             // Draw self last: always blue, central and pointing straight up.
@@ -236,7 +238,7 @@ namespace Radar
         }
 
         private bool CombatMember(Identity identity, Identity local, Identity selected) =>
-            identity == local || identity == selected || _entities.Contains(identity);
+            _overview || identity == local || identity == selected || _entities.Contains(identity);
 
         private void DrawCombat(Identity localIdentity, Identity selected, Vector3 local,
             float cx, float cy, float radius, long now)
@@ -272,14 +274,26 @@ namespace Radar
                     if (!CombatMember(pulse.Target, localIdentity, selected)) _combatContext.Add(pulse.Target);
                     float dx = target.TipX - source.TipX, dy = target.TipY - source.TipY;
                     float length = (float)Math.Sqrt(dx * dx + dy * dy);
-                    if (!Finite(length) || length < 0.5f) continue;
+                    if (!Finite(length)) continue;
                     for (int dot = 0; dot < RadarCombat.DotCount; dot++)
                     {
                         long age = now - pulse.Started - dot * RadarCombat.DotSpacingMilliseconds;
                         if (age < 0 || age >= RadarCombat.TravelMilliseconds) continue;
                         float progress = (float)age / RadarCombat.TravelMilliseconds;
-                        float x = source.TipX + dx * progress, y = source.TipY + dy * progress;
-                        CombatStroke(x - dx / length * 2.2f, y - dy / length * 2.2f, x, y, cx, cy, radius);
+                        if (length < 0.5f)
+                        {
+                            // Self-targeted activity (or overlapping tips) has
+                            // one visible location: loop from its tip back to it.
+                            double angle = progress * Math.PI * 2;
+                            float sine = (float)Math.Sin(angle), cosine = (float)Math.Cos(angle);
+                            float x = source.TipX + sine * 6, y = source.TipY + (cosine - 1) * 6;
+                            CombatStroke(x - cosine * 2.2f, y + sine * 2.2f, x, y, cx, cy, radius);
+                        }
+                        else
+                        {
+                            float x = source.TipX + dx * progress, y = source.TipY + dy * progress;
+                            CombatStroke(x - dx / length * 2.2f, y - dy / length * 2.2f, x, y, cx, cy, radius);
+                        }
                     }
                 }
                 // Reveal only direct opponents of the chosen category/current target
@@ -299,7 +313,7 @@ namespace Radar
             if (_combatMarkers.TryGetValue(identity, out marker)) return marker.Valid;
             Dynel entity;
             marker = new Marker();
-            if (_combatLoaded.TryGetValue(identity, out entity) && entity.IsValid)
+            if (_combatLoaded.TryGetValue(identity, out entity) && entity.VehiclePointer != IntPtr.Zero)
                 TryProject(entity, local, cx, cy, radius, out marker);
             _combatMarkers[identity] = marker;
             return marker.Valid;

@@ -74,7 +74,6 @@ namespace Radar
         private bool _hasPendingEntity;
         private Identity _observedTarget = Identity.None;
         private bool _hasObservedTarget;
-        private bool _followTargetCategory;
 
         public override void Run()
         {
@@ -95,12 +94,12 @@ namespace Radar
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
             Network.N3MessageReceived += OnCombatMessage;
-            Chat.WriteLine("Radar 1.0.24 loaded. Target info above; combat bursts follow the chosen category. Hover frames to move/resize; /radar reset restores all four.");
+            Chat.WriteLine("Radar 1.0.25 loaded. No category = full overview; click a category to filter. AO targets keep the current filter. /radar reset restores all four layouts.");
         }
 
         private void OnCombatMessage(object sender, N3Message message)
         {
-            if (_disposed || !_enabled || _radarDrawingUnavailable || Game.IsZoning || _selectedCategory == NoCategorySelection)
+            if (_disposed || !_enabled || _radarDrawingUnavailable || Game.IsZoning)
                 return;
             // Only managed identities/timing are copied here. The SDK invokes
             // this before OnUpdate; no dynel access, requests or drawing in intake.
@@ -212,9 +211,8 @@ namespace Radar
 
             int profession = (int)button.Tag;
             _selectedCategory = profession == _selectedCategory ? NoCategorySelection : profession;
-            // Browsing filters never change AO's target. Resume category follow
-            // when the game target changes, keeping its marker in the meantime.
-            _followTargetCategory = false;
+            // Filters are manual. Selecting a game target never changes them;
+            // clicking the active category returns to the complete radar overview.
             _pendingEntity = Identity.None;
             _hasPendingEntity = false;
             // Refresh on the next update, after the native click has finished.
@@ -418,34 +416,8 @@ namespace Radar
             _observedTarget = identity;
             _hasObservedTarget = true;
             _selectedEntity = identity;
-            _followTargetCategory = identity != Identity.None;
+            // Highlight/inspect AO's target without narrowing the current view.
             _nextRefresh = 0;
-        }
-
-        private void FollowTargetCategory()
-        {
-            if (!_followTargetCategory || _selectedEntity == Identity.None)
-                return;
-
-            var target = DynelManager.AllDynels.FirstOrDefault(entity => entity.Identity == _selectedEntity);
-            if (target == null || !target.IsValid)
-                return;
-
-            RadarEntityKind kind = RadarEntity.KindOf(target);
-            if (kind == RadarEntityKind.Npc)
-                _selectedCategory = NpcCategory;
-            else if (kind == RadarEntityKind.Pet)
-                _selectedCategory = PetCategory;
-            else if (kind == RadarEntityKind.Other)
-                _selectedCategory = OtherCategory;
-            else
-            {
-                Profession profession = _professions.Observe(target.Identity, new SimpleChar(target).Profession);
-                int category = Array.IndexOf(Professions, (Profession?)profession);
-                // Unknown professions are still visible under All. Continue
-                // following until a later cache refresh supplies the real one.
-                _selectedCategory = category >= 1 ? category : 0;
-            }
         }
 
         private void RefreshOverlay()
@@ -475,9 +447,6 @@ namespace Radar
             var entities = new List<RadarEntity>();
             var seen = new HashSet<Identity>();
             _professions.BeginRefresh();
-            // Non-player details are optional during capture. Choose their
-            // category first, so this very snapshot already has complete rows.
-            FollowTargetCategory();
             foreach (var dynel in DynelManager.AllDynels)
             {
                 if (dynel.Identity == localPlayer.Identity || !seen.Add(dynel.Identity))
@@ -508,7 +477,7 @@ namespace Radar
                 .ToList();
             if (_selectedEntity != Identity.None && !entities.Any(entity => entity.Identity == _selectedEntity))
                 ClearEntitySelection();
-            _radar.SetEntities(visibleEntities.Select(entity => entity.Identity), hasSelectedCategory);
+            _radar.SetEntities(visibleEntities.Select(entity => entity.Identity), !hasSelectedCategory);
 
             bool playersReady = false;
             if (hasSelectedCategory)
@@ -533,8 +502,8 @@ namespace Radar
             }
             else
             {
-                // No category is different from an empty category: do not create
-                // a names window or show the usual "(none)" row.
+                // Overview shows every loaded radar marker, but keeps the names
+                // window hidden until a specific category is chosen.
                 _entitiesToShow.Clear();
                 _lastNames = null;
                 _playerPanel.Close();
@@ -765,7 +734,6 @@ namespace Radar
             _hasPendingEntity = false;
             _observedTarget = Identity.None;
             _hasObservedTarget = false;
-            _followTargetCategory = false;
         }
 
         private void OnTeleportStarted(object sender, EventArgs args)
