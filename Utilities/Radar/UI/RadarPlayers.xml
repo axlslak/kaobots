@@ -1,8 +1,8 @@
 <?xml version="1.0" standalone="yes"?>
 <root>
-  <ScrollView name="PlayerScroll" v_scrollbar_mode="auto" h_scrollbar_mode="auto"
+  <ScrollView name="PlayerScroll" scroll_client="PlayerScrollClient" v_scrollbar_mode="auto" h_scrollbar_mode="auto"
               min_size="Point(0,0)">
-    <ScrollViewChild>
+    <ScrollViewChild name="PlayerScrollClient">
       <View name="PlayerContent" view_layout="vertical" h_alignment="LEFT" />
     </ScrollViewChild>
   </ScrollView>

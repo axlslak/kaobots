@@ -1,8 +1,8 @@
 <?xml version="1.0" standalone="yes"?>
 <root>
-  <ScrollView name="ProfessionScroll" v_scrollbar_mode="auto" h_scrollbar_mode="auto"
+  <ScrollView name="ProfessionScroll" scroll_client="ProfessionScrollClient" v_scrollbar_mode="auto" h_scrollbar_mode="auto"
               min_size="Point(0,0)">
-    <ScrollViewChild>
+    <ScrollViewChild name="ProfessionScrollClient">
       <View name="ProfessionContent" view_layout="vertical" h_alignment="LEFT">
         <View view_layout="horizontal" v_alignment="TOP" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession0" text="All" font="SMALL"
