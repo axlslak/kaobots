@@ -84,7 +84,7 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.21 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
+            Chat.WriteLine("Radar 1.0.22 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -576,6 +576,7 @@ namespace Radar
             if (players.Count == 0)
             {
                 var empty = xml.CreateElement("TextView");
+                empty.SetAttribute("view_flags", "1");
                 empty.SetAttribute("value", "(none)");
                 empty.SetAttribute("font", "SMALL");
                 empty.SetAttribute("color", "0x00FFFFFF");
@@ -587,6 +588,7 @@ namespace Radar
             for (int i = 0; i < players.Count; i++)
             {
                 var button = xml.CreateElement("TextButton");
+                button.SetAttribute("view_flags", "1");
                 button.SetAttribute("name", "Player" + i);
                 button.SetAttribute("text", players[i].Label);
                 button.SetAttribute("font", "SMALL");
@@ -602,6 +604,7 @@ namespace Radar
                 row.SetAttribute("min_size", "Point(-1,13)");
                 row.SetAttribute("max_size", "Point(16000,13)");
                 var selected = xml.CreateElement("TextView");
+                selected.SetAttribute("view_flags", "1");
                 selected.SetAttribute("name", "EntitySelected" + i);
                 selected.SetAttribute("value", "");
                 selected.SetAttribute("font", "SMALL");
@@ -614,6 +617,7 @@ namespace Radar
                 if (players[i].Kind != RadarEntityKind.Player)
                 {
                     var health = xml.CreateElement("TextView");
+                    health.SetAttribute("view_flags", "1");
                     health.SetAttribute("name", "EntityHealth" + i);
                     health.SetAttribute("value", players[i].HealthLabel);
                     health.SetAttribute("font", "SMALL");
