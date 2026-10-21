@@ -84,7 +84,7 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.19 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
+            Chat.WriteLine("Radar 1.0.20 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)

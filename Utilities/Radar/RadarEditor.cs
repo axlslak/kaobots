@@ -15,7 +15,7 @@ namespace Radar
     internal sealed class RadarEditor
     {
         private enum GripKind { None, Move, Resize }
-        private const float RevealDistance = 64, ArmDistance = 112, LeaveDistance = 136;
+        private const float RevealDistance = 20, ArmDistance = 32, LeaveDistance = 40;
         private readonly RadarLayout _layout;
         private readonly NativeGrip _move, _resize;
         private RadarEditorAction _requested;
