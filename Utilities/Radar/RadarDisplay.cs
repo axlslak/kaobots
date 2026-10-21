@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using AOSharp.Common.GameData;
 using AOSharp.Core;
+using SmokeLounge.AOtomation.Messaging.Messages;
 
 namespace Radar
 {
@@ -17,28 +18,51 @@ namespace Radar
         private static readonly Vector3 Blue = new Vector3(0.2f, 0.5f, 1);
         private static readonly Vector3 Yellow = new Vector3(1, 1, 0);
         private static readonly Vector3 Red = new Vector3(1, 0, 0);
+        private static readonly Vector3 CombatColor = new Vector3(1, 0.78f, 0.35f);
+        private static readonly Vector3 OpponentColor = new Vector3(0.5f, 0.5f, 0.4f);
         private readonly HashSet<Identity> _entities = new HashSet<Identity>();
+        private readonly RadarCombat _combat = new RadarCombat();
+        private readonly HashSet<Identity> _combatWanted = new HashSet<Identity>();
+        private readonly HashSet<Identity> _combatContext = new HashSet<Identity>();
+        private readonly Dictionary<Identity, Dynel> _combatLoaded = new Dictionary<Identity, Dynel>();
+        private readonly Dictionary<Identity, Marker> _combatMarkers = new Dictionary<Identity, Marker>();
         private readonly ScreenLines _lines = new ScreenLines();
+        private bool _showCombat;
         private float _forwardX;
         private float _forwardZ = 1;
 
-        public void SetEntities(IEnumerable<Identity> entities)
+        public void SetEntities(IEnumerable<Identity> entities, bool showCombat)
         {
             _entities.Clear();
             foreach (Identity identity in entities)
                 _entities.Add(identity);
+            _showCombat = showCombat;
+            if (!showCombat) ClearCombat();
+        }
+
+        public void ObserveCombat(N3Message message, long now) => _combat.Observe(message, now);
+        public void ClearCombat()
+        {
+            _combat.Clear();
+            _combatWanted.Clear();
+            _combatContext.Clear();
+            _combatLoaded.Clear();
+            _combatMarkers.Clear();
         }
 
         public void Clear()
         {
             _entities.Clear();
+            _showCombat = false;
+            ClearCombat();
             _forwardX = 0;
             _forwardZ = 1;
         }
 
         public void Draw(Vector2 screen, Identity localIdentity, Vector3 localPosition,
-            Vector3 localForward, Identity selectedEntity, RadarViewport viewport, IEnumerable<RadarEditor> editors)
+            Vector3 localForward, Identity selectedEntity, RadarViewport viewport, IEnumerable<RadarEditor> editors, long now)
         {
+            _combat.Expire(now);
             if (!Finite(screen.X) || !Finite(screen.Y) || screen.X <= 0 || screen.Y <= 0)
                 return;
 
@@ -69,6 +93,10 @@ namespace Radar
             Cardinal('E', 1, 0, cx, cy, radius);
             Cardinal('S', 0, -1, cx, cy, radius);
             Cardinal('W', -1, 0, cx, cy, radius);
+
+            // Tiny moving strokes stay below the familiar arrows and edit chrome.
+            if (_showCombat && _combat.Count > 0)
+                DrawCombat(localIdentity, selectedEntity, localPosition, cx, cy, radius, now);
 
             // Cache only filter membership. Read current loaded poses every
             // engine update, so movement/turning does not step at the UI rate.
@@ -158,26 +186,46 @@ namespace Radar
 
         private void Entity(Dynel entity, Vector3 local, float cx, float cy, float radius, Vector3 color)
         {
+            Marker marker;
+            if (TryProject(entity, local, cx, cy, radius, out marker))
+                DrawMarker(marker, color);
+        }
+
+        private bool TryProject(Dynel entity, Vector3 local, float cx, float cy, float radius, out Marker marker)
+        {
+            marker = new Marker();
             Vector3 position = entity.GlobalPosition;
             float dx = position.X - local.X, dz = position.Z - local.Z;
             float distanceSquared = dx * dx + dz * dz;
             if (!Finite(distanceSquared) || distanceSquared > RangeMetres * RangeMetres)
-                return;
+                return false;
 
             float scale = radius / RangeMetres;
             float x = cx + (dx * _forwardZ - dz * _forwardX) * scale;
             float y = cy - (dx * _forwardX + dz * _forwardZ) * scale;
+            marker = new Marker { Valid = true, X = x, Y = y };
             if (entity.Identity.Type == IdentityType.SimpleChar)
             {
                 Vector3 forward = entity.Forward;
                 float fx = forward.X, fz = forward.Z;
                 if (Normalize(ref fx, ref fz))
                 {
-                    Arrow(x, y, fx * _forwardZ - fz * _forwardX,
-                        -(fx * _forwardX + fz * _forwardZ), color);
-                    return;
+                    marker.IsArrow = true;
+                    marker.DX = fx * _forwardZ - fz * _forwardX;
+                    marker.DY = -(fx * _forwardX + fz * _forwardZ);
                 }
             }
+            return true;
+        }
+
+        private void DrawMarker(Marker marker, Vector3 color)
+        {
+            if (marker.IsArrow)
+            {
+                Arrow(marker.X, marker.Y, marker.DX, marker.DY, color);
+                return;
+            }
+            float x = marker.X, y = marker.Y;
 
             // Objects have no useful facing. A missing/vertical character
             // heading must not hide an otherwise valid position either.
@@ -185,6 +233,101 @@ namespace Radar
             _lines.Line(x + 4, y, x, y + 4, color);
             _lines.Line(x, y + 4, x - 4, y, color);
             _lines.Line(x - 4, y, x, y - 4, color);
+        }
+
+        private bool CombatMember(Identity identity, Identity local, Identity selected) =>
+            identity == local || identity == selected || _entities.Contains(identity);
+
+        private void DrawCombat(Identity localIdentity, Identity selected, Vector3 local,
+            float cx, float cy, float radius, long now)
+        {
+            _combatWanted.Clear();
+            _combatContext.Clear();
+            _combatMarkers.Clear();
+            _combatLoaded.Clear();
+            try
+            {
+                foreach (CombatPulse pulse in _combat.Events)
+                {
+                    if (!CombatMember(pulse.Source, localIdentity, selected) && !CombatMember(pulse.Target, localIdentity, selected))
+                        continue;
+                    _combatWanted.Add(pulse.Source);
+                    _combatWanted.Add(pulse.Target);
+                }
+                if (_combatWanted.Count == 0) return;
+                foreach (Dynel entity in DynelManager.AllDynels)
+                    if (_combatWanted.Contains(entity.Identity))
+                        _combatLoaded[entity.Identity] = entity;
+                _combatMarkers[localIdentity] = new Marker { Valid = true, IsArrow = true, X = cx, Y = cy, DX = 0, DY = -1 };
+
+                foreach (CombatPulse pulse in _combat.Events)
+                {
+                    if (!CombatMember(pulse.Source, localIdentity, selected) && !CombatMember(pulse.Target, localIdentity, selected))
+                        continue;
+                    Marker source, target;
+                    if (!CombatMarker(pulse.Source, local, cx, cy, radius, out source) ||
+                        !CombatMarker(pulse.Target, local, cx, cy, radius, out target))
+                        continue;
+                    if (!CombatMember(pulse.Source, localIdentity, selected)) _combatContext.Add(pulse.Source);
+                    if (!CombatMember(pulse.Target, localIdentity, selected)) _combatContext.Add(pulse.Target);
+                    float dx = target.TipX - source.TipX, dy = target.TipY - source.TipY;
+                    float length = (float)Math.Sqrt(dx * dx + dy * dy);
+                    if (!Finite(length) || length < 0.5f) continue;
+                    for (int dot = 0; dot < RadarCombat.DotCount; dot++)
+                    {
+                        long age = now - pulse.Started - dot * RadarCombat.DotSpacingMilliseconds;
+                        if (age < 0 || age >= RadarCombat.TravelMilliseconds) continue;
+                        float progress = (float)age / RadarCombat.TravelMilliseconds;
+                        float x = source.TipX + dx * progress, y = source.TipY + dy * progress;
+                        CombatStroke(x - dx / length * 2.2f, y - dy / length * 2.2f, x, y, cx, cy, radius);
+                    }
+                }
+                // Reveal only direct opponents of the chosen category/current target
+                // or self. These faint context markers never alter lists or counts.
+                foreach (Identity identity in _combatContext)
+                    DrawMarker(_combatMarkers[identity], OpponentColor);
+            }
+            finally
+            {
+                // Retain identities/events, never dynel wrappers between frames.
+                _combatLoaded.Clear();
+            }
+        }
+
+        private bool CombatMarker(Identity identity, Vector3 local, float cx, float cy, float radius, out Marker marker)
+        {
+            if (_combatMarkers.TryGetValue(identity, out marker)) return marker.Valid;
+            Dynel entity;
+            marker = new Marker();
+            if (_combatLoaded.TryGetValue(identity, out entity) && entity.IsValid)
+                TryProject(entity, local, cx, cy, radius, out marker);
+            _combatMarkers[identity] = marker;
+            return marker.Valid;
+        }
+
+        private void CombatStroke(float x1, float y1, float x2, float y2, float cx, float cy, float radius)
+        {
+            // Clip the actual tiny stroke, after interpolation, to the outer ring.
+            // Arrow tips themselves can sit six pixels beyond a 100m centre.
+            double px = x1 - cx, py = y1 - cy, dx = x2 - x1, dy = y2 - y1;
+            double a = dx * dx + dy * dy;
+            if (a < 0.000001) return;
+            double b = px * dx + py * dy, c = px * px + py * py - (double)radius * radius;
+            double discriminant = b * b - a * c;
+            if (discriminant < 0) return;
+            double root = Math.Sqrt(discriminant);
+            double start = Math.Max(0, (-b - root) / a), end = Math.Min(1, (-b + root) / a);
+            if (end <= start) return;
+            _lines.Line(x1 + (float)(dx * start), y1 + (float)(dy * start),
+                x1 + (float)(dx * end), y1 + (float)(dy * end), CombatColor);
+        }
+
+        private struct Marker
+        {
+            public float X, Y, DX, DY;
+            public bool Valid, IsArrow;
+            public float TipX => X + (IsArrow ? DX * 6 : 0);
+            public float TipY => Y + (IsArrow ? DY * 6 : 0);
         }
 
         private void Arrow(float x, float y, float dx, float dy, Vector3 color)

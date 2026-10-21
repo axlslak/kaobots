@@ -9,6 +9,7 @@ using AOSharp.Common.GameData;
 using AOSharp.Common.GameData.UI;
 using AOSharp.Core;
 using AOSharp.Core.UI;
+using SmokeLounge.AOtomation.Messaging.Messages;
 
 namespace Radar
 {
@@ -93,7 +94,18 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.23 loaded. Target info above, categories left, entities right. Hover frames to move/resize; /radar reset restores all four.");
+            Network.N3MessageReceived += OnCombatMessage;
+            Chat.WriteLine("Radar 1.0.24 loaded. Target info above; combat bursts follow the chosen category. Hover frames to move/resize; /radar reset restores all four.");
+        }
+
+        private void OnCombatMessage(object sender, N3Message message)
+        {
+            if (_disposed || !_enabled || _radarDrawingUnavailable || Game.IsZoning || _selectedCategory == NoCategorySelection)
+                return;
+            // Only managed identities/timing are copied here. The SDK invokes
+            // this before OnUpdate; no dynel access, requests or drawing in intake.
+            try { _radar.ObserveCombat(message, _clock.ElapsedMilliseconds); }
+            catch { _radar.ClearCombat(); } // Never interrupt SDK packet dispatch.
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -341,6 +353,7 @@ namespace Radar
                 foreach (RadarEditor editor in _editors)
                     editor.Stop(true); // Old character's files still own the saves.
                 _targetInspector.Clear();
+                _radar.ClearCombat();
             }
             foreach (RadarLayout layout in _layouts)
             {
@@ -495,7 +508,7 @@ namespace Radar
                 .ToList();
             if (_selectedEntity != Identity.None && !entities.Any(entity => entity.Identity == _selectedEntity))
                 ClearEntitySelection();
-            _radar.SetEntities(visibleEntities.Select(entity => entity.Identity));
+            _radar.SetEntities(visibleEntities.Select(entity => entity.Identity), hasSelectedCategory);
 
             bool playersReady = false;
             if (hasSelectedCategory)
@@ -733,7 +746,8 @@ namespace Radar
                     return;
                 Vector2 screen = Window.GetScreenSize();
                 _radar.Draw(screen, localPlayer.Identity,
-                    localPlayer.GlobalPosition, localPlayer.Forward, _selectedEntity, _editor.GetViewport(screen), _editors);
+                    localPlayer.GlobalPosition, localPlayer.Forward, _selectedEntity, _editor.GetViewport(screen), _editors,
+                    _clock.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {
@@ -791,6 +805,7 @@ namespace Radar
             ClearEntitySelection();
             Game.OnUpdate -= OnUpdate;
             Game.TeleportStarted -= OnTeleportStarted;
+            Network.N3MessageReceived -= OnCombatMessage;
             _professions.Clear();
             CloseOverlay();
         }

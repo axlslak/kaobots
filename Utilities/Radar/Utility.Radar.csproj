@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="Radar.cs" />
     <Compile Include="RadarDisplay.cs" />
+    <Compile Include="RadarCombat.cs" />
     <Compile Include="RadarLayout.cs" />
     <Compile Include="RadarEditor.cs" />
     <Compile Include="RadarPointer.cs" />
