@@ -7,164 +7,182 @@
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession0" text="All" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount0" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected0" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession15" text="NPCs" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount15" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected15" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession17" text="Pets" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount17" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected17" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession1" text="Adventurer" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount1" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected1" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession2" text="Agent" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount2" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected2" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession3" text="Bureaucrat" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount3" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected3" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession4" text="Doctor" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount4" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected4" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession5" text="Enforcer" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount5" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected5" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession6" text="Engineer" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount6" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected6" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession7" text="Fixer" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount7" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected7" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession8" text="Keeper" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount8" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected8" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession9" text="Martial Artist" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount9" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected9" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession10" text="Meta-Physicist" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount10" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected10" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession11" text="Nano-Technician" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount11" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected11" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession12" text="Shade" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount12" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected12" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession13" text="Soldier" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount13" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected13" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession14" text="Trader" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount14" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected14" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
         <View view_layout="horizontal" min_size="Point(-1,13)" max_size="Point(16000,13)">
           <TextButton name="Profession16" text="Others" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
-                      min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                      min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="ProfessionCount16" value=" (0)" font="SMALL" color="0x00FFFFFF"
-                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(16000,13)" />
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,13)" max_size="Point(-1,13)" />
           <TextView name="Selected16" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,13)" max_size="Point(7,13)" />
+          <HLayoutSpacer />
         </View>
       </View>
     </ScrollViewChild>

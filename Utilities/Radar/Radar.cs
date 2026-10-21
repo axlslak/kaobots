@@ -84,7 +84,7 @@ namespace Radar
             Chat.RegisterCommand("radar", OnRadarCommand);
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
-            Chat.WriteLine("Radar 1.0.17 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
+            Chat.WriteLine("Radar 1.0.18 loaded. Categories left, entities right; hover their frames to move/resize. /radar reset restores all three.");
         }
 
         private HudPanel CreatePanel(string name, string file, bool interactive, Action<Window> bind)
@@ -580,6 +580,8 @@ namespace Radar
                 empty.SetAttribute("font", "SMALL");
                 empty.SetAttribute("color", "0x00FFFFFF");
                 empty.SetAttribute("feature_flags", "TVF_RENDER_SHADOW");
+                empty.SetAttribute("min_size", "Point(-1,13)");
+                empty.SetAttribute("max_size", "Point(-1,13)");
                 content.AppendChild(empty);
             }
             for (int i = 0; i < players.Count; i++)
@@ -593,7 +595,7 @@ namespace Radar
                 button.SetAttribute("hover_color", color);
                 button.SetAttribute("pressed_color", color);
                 button.SetAttribute("min_size", "Point(-1,13)");
-                button.SetAttribute("max_size", "Point(16000,13)");
+                button.SetAttribute("max_size", "Point(-1,13)");
                 var row = xml.CreateElement("View");
                 row.SetAttribute("view_layout", "horizontal");
                 row.SetAttribute("min_size", "Point(-1,13)");
@@ -617,9 +619,11 @@ namespace Radar
                     health.SetAttribute("color", color);
                     health.SetAttribute("feature_flags", "TVF_RENDER_SHADOW");
                     health.SetAttribute("min_size", "Point(-1,13)");
-                    health.SetAttribute("max_size", "Point(16000,13)");
+                    health.SetAttribute("max_size", "Point(-1,13)");
                     row.AppendChild(health);
                 }
+                // Keep text at its preferred width; only the spacer fills the viewport.
+                row.AppendChild(xml.CreateElement("HLayoutSpacer"));
                 content.AppendChild(row);
             }
             return xml.OuterXml;
