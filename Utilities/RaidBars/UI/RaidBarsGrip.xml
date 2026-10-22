@@ -1,0 +1,7 @@
+<?xml version="1.0" standalone="yes"?>
+<root>
+  <!-- Only the small native title is a move handle. No utility window covers
+       the health bars; AO continues to draw and handle its original bars. -->
+  <View name="RaidBarsGripCanvas" view_layout="vertical" layout_borders="Rect(0,0,0,0)"
+        min_size="Point(0,0)" max_size="Point(16000,8)" />
+</root>

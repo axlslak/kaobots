@@ -1,0 +1,40 @@
+<?xml version="1.0" standalone="yes"?>
+<root>
+  <BorderView name="RaidBarsSetup" view_layout="vertical" layout_borders="Rect(8,8,8,8)" min_size="Point(420,0)" max_size="Point(480,16000)">
+    <TextView value="NATIVE RAID BARS - layout trial" text_style="bold" layout_borders="Rect(0,0,0,6)" />
+    <TextView value="Six team columns. Six member slots in each column." />
+    <TextView value="Start with Align, then use Move all or Move teams." layout_borders="Rect(0,0,0,6)" />
+    <View view_layout="horizontal" layout_borders="Rect(0,2,0,2)">
+      <TextView value="Left" min_size="Point(74,18)" />
+      <TextInputView name="OriginX" value="207" min_size="Point(85,18)" max_size="Point(85,18)" />
+      <TextView value="Top" min_size="Point(74,18)" layout_borders="Rect(12,0,0,0)" />
+      <TextInputView name="OriginY" value="632" min_size="Point(85,18)" max_size="Point(85,18)" />
+    </View>
+    <View view_layout="horizontal" layout_borders="Rect(0,2,0,6)">
+      <TextView value="Team gap" min_size="Point(74,18)" />
+      <TextInputView name="ColumnGap" value="3" min_size="Point(85,18)" max_size="Point(85,18)" />
+      <TextView value="Row gap" min_size="Point(74,18)" layout_borders="Rect(12,0,0,0)" />
+      <TextInputView name="RowGap" value="-1" min_size="Point(85,18)" max_size="Point(85,18)" />
+    </View>
+    <TextView value="Gaps use screen units; negative gaps overlap bar edges." layout_borders="Rect(0,0,0,6)" />
+    <View view_layout="horizontal" layout_borders="Rect(0,2,0,2)">
+      <Button name="Apply" label="Align 36 slots" min_size="Point(130,22)" />
+      <Button name="MoveAll" label="Move all" min_size="Point(130,22)" layout_borders="Rect(4,0,0,0)" />
+      <Button name="MoveTeams" label="Move teams" min_size="Point(130,22)" layout_borders="Rect(4,0,0,0)" />
+    </View>
+    <View view_layout="horizontal" layout_borders="Rect(0,2,0,2)">
+      <Button name="Lock" label="Lock bars" min_size="Point(130,22)" />
+      <Button name="Unlock" label="Unlock bars" min_size="Point(130,22)" layout_borders="Rect(4,0,0,0)" />
+      <Button name="Done" label="Done" min_size="Point(130,22)" layout_borders="Rect(4,0,0,0)" />
+    </View>
+    <View view_layout="horizontal" layout_borders="Rect(0,2,0,6)">
+      <Button name="Read" label="Read current" min_size="Point(130,22)" />
+      <Button name="Undo" label="Undo setup" min_size="Point(130,22)" layout_borders="Rect(4,0,0,0)" />
+      <Button name="StatusButton" label="Details in chat" min_size="Point(130,22)" layout_borders="Rect(4,0,0,0)" />
+    </View>
+    <TextView value="Live bar movement still needs an in-game trial." />
+    <TextView value="Check with two characters before arranging a full raid." />
+    <TextView value="Group handles work during setup. AO owns the final lock." layout_borders="Rect(0,0,0,6)" />
+    <TextView name="Status" value="No changes on load." feature_flags="TVF_RENDER_SHADOW|TVF_MULTILINE" max_size="Point(410,16000)" />
+  </BorderView>
+</root>

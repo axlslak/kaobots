@@ -131,12 +131,18 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProfessionHandler.Auto", "P
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Utility.Radar", "Utilities\Radar\Utility.Radar.csproj", "{C5168CD1-B819-4DAF-8AEF-CB190230C2E0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Utility.RaidBars", "Utilities\RaidBars\Utility.RaidBars.csproj", "{BA74AB21-C849-49A9-9AB5-A722B4AA41CB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BA74AB21-C849-49A9-9AB5-A722B4AA41CB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA74AB21-C849-49A9-9AB5-A722B4AA41CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA74AB21-C849-49A9-9AB5-A722B4AA41CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA74AB21-C849-49A9-9AB5-A722B4AA41CB}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C5168CD1-B819-4DAF-8AEF-CB190230C2E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C5168CD1-B819-4DAF-8AEF-CB190230C2E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C5168CD1-B819-4DAF-8AEF-CB190230C2E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -378,6 +384,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{BA74AB21-C849-49A9-9AB5-A722B4AA41CB} = {EBABA3F7-41F4-4C52-8BEB-FCA5EE450232}
 		{C5168CD1-B819-4DAF-8AEF-CB190230C2E0} = {EBABA3F7-41F4-4C52-8BEB-FCA5EE450232}
 		{BC63B987-0AA9-46DF-B601-813303C98239} = {FE9A58E6-1A00-437B-8842-D784F3B0A7BB}
 		{E5B3F16E-BD81-4075-B241-04B0AF521B61} = {EBABA3F7-41F4-4C52-8BEB-FCA5EE450232}
