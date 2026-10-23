@@ -4,7 +4,7 @@ using AOSharp.Core;
 
 namespace Radar
 {
-    internal enum RadarEntityKind { Player, Npc, Other, Pet }
+    internal enum RadarEntityKind { Player, Npc, Other, Pet, Tower }
 
     // A display snapshot, never a retained native dynel wrapper.
     internal sealed class RadarEntity
@@ -33,7 +33,8 @@ namespace Radar
 
         public string HealthLabel => _health == null ? "" : " HP " + _health;
 
-        public RadarEntity(Dynel dynel, RadarEntityKind kind, Profession profession, bool details)
+        public RadarEntity(Dynel dynel, RadarEntityKind kind, Profession profession, bool details,
+            int rosterLevel = -1)
         {
             Identity = dynel.Identity;
             Kind = kind;
@@ -45,7 +46,8 @@ namespace Radar
 
             string name = dynel.Name;
             Name = string.IsNullOrWhiteSpace(name) ? Identity.Type + " " + Identity.Instance : name;
-            int level = dynel.GetStat(Stat.Level);
+            int level = kind == RadarEntityKind.Player && rosterLevel >= 1 && rosterLevel <= 220 ?
+                rosterLevel : dynel.GetStat(Stat.Level);
             if (kind == RadarEntityKind.Player)
             {
                 Level = level >= 1 && level <= 220 ? level : -1;
@@ -71,7 +73,9 @@ namespace Radar
                 return RadarEntityKind.Player;
             // Use the engine's positive pet flag, even if its owner is not
             // currently loaded. PetOwnerId alone does not establish ownership.
-            return character.IsPet ? RadarEntityKind.Pet : RadarEntityKind.Npc;
+            if (character.IsPet)
+                return RadarEntityKind.Pet;
+            return character.Flags.HasFlag(CharacterFlags.Tower) ? RadarEntityKind.Tower : RadarEntityKind.Npc;
         }
 
         public static string ReadHealth(Dynel dynel)

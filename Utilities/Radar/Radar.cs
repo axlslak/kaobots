@@ -26,15 +26,18 @@ namespace Radar
             Profession.NanoTechnician, Profession.Shade, Profession.Soldier, Profession.Trader
         };
 
-        // Keep existing control IDs stable. XML inserts NPCs and Pets after
-        // All and appends Others; IDs and visible row positions are distinct.
+        // Control IDs stay stable; XML row order is independent of these IDs.
         private static readonly int NpcCategory = Professions.Length;
         private static readonly int OtherCategory = Professions.Length + 1;
         private static readonly int PetCategory = Professions.Length + 2;
-        private static readonly int CategoryCount = Professions.Length + 3;
+        private static readonly int TowerCategory = Professions.Length + 3;
+        private static readonly int RaidCategory = Professions.Length + 4;
+        private static readonly int TeamCategory = Professions.Length + 5;
+        private static readonly int CategoryCount = Professions.Length + 6;
 
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private readonly ProfessionResolver _professions = new ProfessionResolver();
+        private readonly RadarRoster _roster = new RadarRoster();
         private readonly RadarDisplay _radar = new RadarDisplay();
         private readonly RadarLayout _layout = new RadarLayout();
         private readonly RadarLayout _categoryLayout = new RadarLayout(RadarPanelKind.Categories);
@@ -72,6 +75,8 @@ namespace Radar
         private bool _selectedLabelsUnavailable;
         private bool _targetInfoUnavailable;
         private bool _targetDataUnavailable;
+        private bool _rosterUnavailable;
+        private int _categoryXmlFlags = int.MinValue;
         private int _selectedCategory = NoCategorySelection;
         private int _lastSelection = int.MinValue;
         private string _lastNames;
@@ -103,7 +108,7 @@ namespace Radar
             Game.OnUpdate += OnUpdate;
             Game.TeleportStarted += OnTeleportStarted;
             Network.N3MessageReceived += OnCombatMessage;
-            Chat.WriteLine("Radar 1.0.26 loaded. /radar on/off shows/hides the HUD; background collection continues. No category = full overview. /radar reset restores all four layouts.");
+            Chat.WriteLine("Radar 1.0.27 loaded. /radar on/off shows/hides the HUD; background collection continues. No category = full overview. /radar reset restores all four layouts.");
         }
 
         private void OnCombatMessage(object sender, N3Message message)
@@ -131,8 +136,12 @@ namespace Radar
                 !window.FindView("ProfessionContent", out _professionContent))
                 throw new InvalidOperationException("Could not find Radar's profession column.");
 
+            Array.Clear(_selectionMarkers, 0, _selectionMarkers.Length);
+            Array.Clear(_professionCounts, 0, _professionCounts.Length);
             for (int i = 0; i < CategoryCount; i++)
             {
+                if (!IsCategoryAvailable(i))
+                    continue;
                 ButtonBase button;
                 if (!window.FindView("Profession" + i, out button) ||
                     !window.FindView("Selected" + i, out _selectionMarkers[i]) ||
@@ -163,7 +172,7 @@ namespace Radar
             try
             {
                 // Collection is independent of native windows and visibility.
-                _targetInspector.Update(_clock.ElapsedMilliseconds);
+                _targetInspector.Update(_clock.ElapsedMilliseconds, _roster);
             }
             catch (Exception ex)
             {
@@ -239,6 +248,8 @@ namespace Radar
                 return;
 
             int profession = (int)button.Tag;
+            if (!IsCategoryAvailable(profession))
+                return;
             _selectedCategory = profession == _selectedCategory ? NoCategorySelection : profession;
             // Filters are manual. Selecting a game target never changes them;
             // clicking the active category returns to the complete radar overview.
@@ -409,6 +420,7 @@ namespace Radar
                     editor.Stop(true); // Old character's files still own the saves.
                 ClearEntitySelection();
                 _professions.Clear();
+                _roster.Clear();
                 _targetInspector.Clear();
                 _radar.Clear();
                 ClearSnapshots();
@@ -494,6 +506,15 @@ namespace Radar
             }
 
             EnsureLayout(localPlayer.Identity);
+            UpdateRoster(localPlayer.Identity);
+            if (!IsCategoryAvailable(_selectedCategory))
+            {
+                // Leaving the group returns to the full overview, never to a
+                // stale invisible filter. AO's actual target remains untouched.
+                _selectedCategory = NoCategorySelection;
+                _pendingEntity = Identity.None;
+                _hasPendingEntity = false;
+            }
 
             // Keep display data separate from live dynel wrappers. Only
             // players go through profession resolution and its InfoRequests.
@@ -508,19 +529,26 @@ namespace Radar
                 RadarEntityKind kind = RadarEntity.KindOf(dynel);
                 Profession profession = default(Profession);
                 if (kind == RadarEntityKind.Player)
-                    profession = _professions.Observe(dynel.Identity, new SimpleChar(dynel).Profession);
+                {
+                    Profession known = _roster.ProfessionOf(dynel.Identity);
+                    profession = _professions.Observe(dynel.Identity,
+                        ProfessionResolver.IsPlayerProfession(known) ? known : new SimpleChar(dynel).Profession);
+                }
                 bool details = kind == RadarEntityKind.Player ||
+                    (kind == RadarEntityKind.Tower && _selectedCategory == TowerCategory) ||
                     (kind == RadarEntityKind.Npc && _selectedCategory == NpcCategory) ||
                     (kind == RadarEntityKind.Pet && _selectedCategory == PetCategory) ||
                     (kind == RadarEntityKind.Other && _selectedCategory == OtherCategory);
-                entities.Add(new RadarEntity(dynel, kind, profession, details));
+                entities.Add(new RadarEntity(dynel, kind, profession, details, _roster.LevelOf(dynel.Identity)));
             }
             _professions.EndRefresh(_clock.ElapsedMilliseconds);
 
             bool hasSelectedCategory = _selectedCategory != NoCategorySelection;
             var visibleEntities = entities
                 .Where(entity => MatchesCategory(entity, _selectedCategory))
-                .OrderByDescending(entity => entity.Level)
+                .OrderBy(entity => _selectedCategory == RaidCategory ? _roster.GroupRank(entity.Identity) : 0)
+                .ThenBy(entity => _selectedCategory == RaidCategory ? _roster.GroupIndex(entity.Identity) : 0)
+                .ThenByDescending(entity => entity.Level)
                 .ThenByDescending(entity => entity.AILevel)
                 .ThenBy(entity => entity.Name, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(entity => entity.Identity.Type)
@@ -533,6 +561,8 @@ namespace Radar
             if (_selectedEntity != Identity.None && !entities.Any(entity => entity.Identity == _selectedEntity))
                 ClearEntitySelection();
             _radar.SetEntities(visibleEntities.Select(entity => entity.Identity), !hasSelectedCategory);
+            _radar.SetRelationships(_roster, entities, !hasSelectedCategory ||
+                _selectedCategory == TeamCategory || _selectedCategory == RaidCategory);
 
             if (_visible)
                 RefreshHud();
@@ -550,6 +580,12 @@ namespace Radar
                 return;
 
             PresentTargetInspector();
+            int categoryFlags = (_roster.HasTeam ? 1 : 0) | (_roster.HasRaid ? 2 : 0);
+            if (_categoryXmlFlags != categoryFlags)
+            {
+                _professionPanel.ReplaceXml(CreateProfessionXml(_roster.HasTeam, _roster.HasRaid));
+                _categoryXmlFlags = categoryFlags;
+            }
             if (!_professionPanel.EnsureCreated())
                 return;
             RefreshProfessionCounts(_latestEntities);
@@ -589,15 +625,64 @@ namespace Radar
             if (_selectedCategory != _lastSelection)
             {
                 for (int i = 0; i < _selectionMarkers.Length; i++)
-                    _selectionMarkers[i].Text = i == _selectedCategory ? ">" : "";
+                    if (_selectionMarkers[i] != null)
+                        _selectionMarkers[i].Text = i == _selectedCategory ? ">" : "";
                 _lastSelection = _selectedCategory;
             }
 
             PlaceHudPanels(screen);
         }
 
-        private static bool MatchesCategory(RadarEntity entity, int category)
+        private void UpdateRoster(Identity localIdentity)
         {
+            if (_rosterUnavailable)
+                return;
+            try { _roster.Capture(localIdentity); }
+            catch (Exception ex)
+            {
+                _rosterUnavailable = true;
+                _roster.Clear();
+                Chat.WriteLine("Radar: team/raid roster unavailable. Other categories remain available. " + ex.Message);
+            }
+        }
+
+        private bool IsCategoryAvailable(int category)
+        {
+            if (category == TeamCategory)
+                return _roster.HasTeam;
+            if (category == RaidCategory)
+                return _roster.HasRaid;
+            return category == NoCategorySelection || category >= 0 && category < CategoryCount;
+        }
+
+        private string CreateProfessionXml(bool team, bool raid)
+        {
+            var xml = new XmlDocument { XmlResolver = null };
+            xml.Load(Path.Combine(PluginDirectory, "UI", "RadarProfessions.xml"));
+            if (!raid)
+                RemoveCategoryRow(xml, RaidCategory);
+            if (!team)
+                RemoveCategoryRow(xml, TeamCategory);
+            return xml.OuterXml;
+        }
+
+        private static void RemoveCategoryRow(XmlDocument xml, int category)
+        {
+            XmlNode button = xml.SelectSingleNode("//*[@name='Profession" + category + "']");
+            if (button == null || button.ParentNode == null || button.ParentNode.ParentNode == null)
+                throw new InvalidOperationException("A Radar category row is missing. Update UI/RadarProfessions.xml.");
+            XmlNode row = button.ParentNode;
+            row.ParentNode.RemoveChild(row);
+        }
+
+        private bool MatchesCategory(RadarEntity entity, int category)
+        {
+            if (category == TowerCategory)
+                return entity.Kind == RadarEntityKind.Tower;
+            if (category == RaidCategory)
+                return entity.Kind == RadarEntityKind.Player && _roster.InRaid(entity.Identity);
+            if (category == TeamCategory)
+                return entity.Kind == RadarEntityKind.Player && _roster.InTeam(entity.Identity);
             if (category == NpcCategory)
                 return entity.Kind == RadarEntityKind.Npc;
             if (category == PetCategory)
@@ -615,6 +700,8 @@ namespace Radar
             bool changed = false;
             for (int i = 0; i < CategoryCount; i++)
             {
+                if (_professionCounts[i] == null)
+                    continue;
                 int count = players.Count(entity => MatchesCategory(entity, i));
                 if (count == _lastProfessionCounts[i])
                     continue;
@@ -827,6 +914,7 @@ namespace Radar
                 foreach (RadarEditor editor in _editors)
                     editor.Stop(true);
             _radar.Clear();
+            _roster.Clear();
             _professionPanel?.Close();
             _playerPanel?.Close();
             _targetInspector.Clear();

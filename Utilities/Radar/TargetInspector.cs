@@ -188,7 +188,7 @@ namespace Radar
             foreach (Field field in _fields.Values) Set(field.Key, "?");
         }
 
-        public void Update(long now)
+        public void Update(long now, RadarRoster roster)
         {
             Dynel target = Targeting.Target;
             var local = DynelManager.LocalPlayer;
@@ -207,7 +207,7 @@ namespace Radar
             if (now >= _nextLive)
             {
                 _nextLive = now + LiveInterval;
-                CaptureLive(target, local);
+                CaptureLive(target, local, roster);
             }
             if (now >= _nextDetails)
             {
@@ -240,7 +240,7 @@ namespace Radar
         // into bounded managed fields while existing native views are hidden.
         public void RefreshViews() => Flush();
 
-        private void CaptureLive(Dynel target, SimpleChar local)
+        private void CaptureLive(Dynel target, SimpleChar local, RadarRoster roster)
         {
             string name = Safe(() => SingleLine(target.Name));
             Set("name", name);
@@ -250,8 +250,13 @@ namespace Radar
             Set("kind", Safe(() => RadarEntity.KindOf(target).ToString()) + (target.Identity == local.Identity ? " (self)" : ""));
             Set("hp", Pool(target, "Health", "MaxHealth"));
             Set("nano", Pool(target, "CurrentNano", "MaxNanoEnergy"));
-            Set("level", Named(target, "Level")); Set("ai", Named(target, "AlienLevel"));
-            Set("profession", EnumStat(target, "Profession", typeof(Profession)));
+            int rosterLevel = roster.LevelOf(target.Identity);
+            Profession rosterProfession = roster.ProfessionOf(target.Identity);
+            Set("level", rosterLevel >= 1 ? rosterLevel.ToString(Invariant) + " (roster)" : Named(target, "Level"));
+            Set("ai", Named(target, "AlienLevel"));
+            Set("profession", ProfessionResolver.IsPlayerProfession(rosterProfession) ?
+                rosterProfession + " (" + ((uint)rosterProfession).ToString(Invariant) + ", roster)" :
+                EnumStat(target, "Profession", typeof(Profession)));
             Set("breed", EnumStat(target, "Breed", typeof(Breed)));
             Set("side", EnumStat(target, "Side", typeof(Side)));
             Set("gender", Named(target, "Sex")); Set("race", Named(target, "Race"));

@@ -71,7 +71,7 @@ namespace Radar
             _nextRequest = 0;
         }
 
-        private static bool IsPlayerProfession(Profession profession)
+        internal static bool IsPlayerProfession(Profession profession)
         {
             return (profession >= Profession.Soldier && profession <= Profession.Metaphysicist) ||
                 profession == Profession.Keeper || profession == Profession.Shade;

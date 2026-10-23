@@ -50,6 +50,7 @@
     <Compile Include="RadarEditor.cs" />
     <Compile Include="RadarPointer.cs" />
     <Compile Include="RadarEntity.cs" />
+    <Compile Include="RadarRoster.cs" />
     <Compile Include="SelectedPlayerLabels.cs" />
     <Compile Include="TargetInspector.cs" />
     <Compile Include="ProfessionResolver.cs" />

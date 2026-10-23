@@ -17,10 +17,16 @@ namespace Radar
         private static readonly Vector3 White = new Vector3(1, 1, 1);
         private static readonly Vector3 Blue = new Vector3(0.2f, 0.5f, 1);
         private static readonly Vector3 Yellow = new Vector3(1, 1, 0);
+        private static readonly Vector3 Green = new Vector3(0.25f, 1, 0.35f);
+        private static readonly Vector3 Pink = new Vector3(1, 0.45f, 0.8f);
         private static readonly Vector3 Red = new Vector3(1, 0, 0);
         private static readonly Vector3 CombatColor = new Vector3(1, 0.78f, 0.35f);
         private static readonly Vector3 OpponentColor = new Vector3(0.5f, 0.5f, 0.4f);
         private readonly HashSet<Identity> _entities = new HashSet<Identity>();
+        private readonly HashSet<Identity> _team = new HashSet<Identity>();
+        private readonly HashSet<Identity> _raid = new HashSet<Identity>();
+        private readonly HashSet<Identity> _pets = new HashSet<Identity>();
+        private bool _relationshipColors;
         private readonly RadarCombat _combat = new RadarCombat();
         private readonly HashSet<Identity> _combatWanted = new HashSet<Identity>();
         private readonly HashSet<Identity> _combatContext = new HashSet<Identity>();
@@ -39,6 +45,21 @@ namespace Radar
             _overview = overview;
         }
 
+        public void SetRelationships(RadarRoster roster, IEnumerable<RadarEntity> entities, bool enabled)
+        {
+            _team.Clear();
+            _raid.Clear();
+            _pets.Clear();
+            foreach (Identity identity in roster.TeamIdentities)
+                _team.Add(identity);
+            foreach (Identity identity in roster.RaidIdentities)
+                _raid.Add(identity);
+            foreach (RadarEntity entity in entities)
+                if (entity.Kind == RadarEntityKind.Pet)
+                    _pets.Add(entity.Identity);
+            _relationshipColors = enabled;
+        }
+
         public void ObserveCombat(N3Message message, long now) => _combat.Observe(message, now);
         public void ExpireCombat(long now) => _combat.Expire(now);
         public void ClearCombat()
@@ -53,6 +74,10 @@ namespace Radar
         public void Clear()
         {
             _entities.Clear();
+            _team.Clear();
+            _raid.Clear();
+            _pets.Clear();
+            _relationshipColors = false;
             _overview = true;
             ClearCombat();
             _forwardX = 0;
@@ -112,7 +137,7 @@ namespace Radar
                 if (entity.Identity == selectedEntity)
                     selected = entity;
                 else
-                    Entity(entity, localPosition, cx, cy, radius, Yellow);
+                    Entity(entity, localPosition, cx, cy, radius, EntityColor(entity.Identity));
             }
             if (selected != null && selected.VehiclePointer != IntPtr.Zero)
                 Entity(selected, localPosition, cx, cy, radius, Red);
@@ -123,6 +148,17 @@ namespace Radar
                 foreach (RadarEditor editor in editors)
                     if (editor.Visible)
                         EditingChrome(editor);
+        }
+
+        private Vector3 EntityColor(Identity identity)
+        {
+            if (!_relationshipColors)
+                return Yellow;
+            if (_team.Contains(identity))
+                return Green;
+            if (_raid.Contains(identity))
+                return Yellow;
+            return _pets.Contains(identity) ? Pink : White;
         }
 
         private void EditingChrome(RadarEditor editor)

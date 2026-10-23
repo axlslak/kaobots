@@ -5,12 +5,22 @@
     <ScrollViewChild name="ProfessionScrollClient">
       <View name="ProfessionContent" view_layout="vertical" h_alignment="LEFT">
         <View view_layout="horizontal" v_alignment="TOP" min_size="Point(-1,13)" max_size="Point(16000,13)">
-          <TextButton view_flags="1" name="Profession0" text="All" font="SMALL"
+          <TextButton view_flags="1" name="Profession0" text="All players" font="SMALL"
                       color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
                       min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
           <TextView view_flags="1" name="ProfessionCount0" value=" (0)" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
           <TextView view_flags="1" name="Selected0" font="SMALL" color="0x00FFFFFF"
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,-1)" max_size="Point(7,-1)" />
+          <HLayoutSpacer />
+        </View>
+        <View view_layout="horizontal" v_alignment="TOP" min_size="Point(-1,13)" max_size="Point(16000,13)">
+          <TextButton view_flags="1" name="Profession18" text="Towers" font="SMALL"
+                      color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
+                      min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
+          <TextView view_flags="1" name="ProfessionCount18" value=" (0)" font="SMALL" color="0x00FFFFFF"
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
+          <TextView view_flags="1" name="Selected18" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,-1)" max_size="Point(7,-1)" />
           <HLayoutSpacer />
         </View>
@@ -31,6 +41,26 @@
           <TextView view_flags="1" name="ProfessionCount17" value=" (0)" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
           <TextView view_flags="1" name="Selected17" font="SMALL" color="0x00FFFFFF"
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,-1)" max_size="Point(7,-1)" />
+          <HLayoutSpacer />
+        </View>
+        <View view_layout="horizontal" v_alignment="TOP" min_size="Point(-1,13)" max_size="Point(16000,13)">
+          <TextButton view_flags="1" name="Profession19" text="Raid" font="SMALL"
+                      color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
+                      min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
+          <TextView view_flags="1" name="ProfessionCount19" value=" (0)" font="SMALL" color="0x00FFFFFF"
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
+          <TextView view_flags="1" name="Selected19" font="SMALL" color="0x00FFFFFF"
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,-1)" max_size="Point(7,-1)" />
+          <HLayoutSpacer />
+        </View>
+        <View view_layout="horizontal" v_alignment="TOP" min_size="Point(-1,13)" max_size="Point(16000,13)">
+          <TextButton view_flags="1" name="Profession20" text="Team" font="SMALL"
+                      color="0x00FFFFFF" hover_color="0x00FFFFFF" pressed_color="0x00FFFFFF"
+                      min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
+          <TextView view_flags="1" name="ProfessionCount20" value=" (0)" font="SMALL" color="0x00FFFFFF"
+                    feature_flags="TVF_RENDER_SHADOW" min_size="Point(-1,-1)" max_size="Point(-1,-1)" />
+          <TextView view_flags="1" name="Selected20" font="SMALL" color="0x00FFFFFF"
                     feature_flags="TVF_RENDER_SHADOW" min_size="Point(7,-1)" max_size="Point(7,-1)" />
           <HLayoutSpacer />
         </View>
