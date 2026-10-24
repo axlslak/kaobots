@@ -2700,6 +2700,7 @@ namespace ProfessionHandler.Generic
             MorphSwitch();
 
             if (MorhpSpellArray.Length == 0) { return; }
+            if (MaintainTeamMorph()) { return; }
             if (localPlayer.Buffs.Contains(MorhpSpellArray)) { return; }
 
             var MorphSpell = Spell.List.FirstOrDefault(h => MorhpSpellArray.Contains(h.Id));

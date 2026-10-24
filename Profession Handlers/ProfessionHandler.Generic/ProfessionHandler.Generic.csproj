@@ -70,6 +70,7 @@
     <Compile Include="Spell Processors\SpellIDs.cs" />
     <Compile Include="Spell Processors\TauntProcessors.cs" />
     <Compile Include="Spell Processors\BuffProcessors.cs" />
+    <Compile Include="Spell Processors\TeamMorphs.cs" />
     <Compile Include="Spell Processors\HealProcessors.cs" />
     <Compile Include="Spell Processors\NukeProcessors.cs" />
     <Compile Include="ItemPerkProcessors\PerkProcessors.cs" />
