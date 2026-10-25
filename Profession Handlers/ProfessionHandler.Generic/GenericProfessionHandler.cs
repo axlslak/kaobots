@@ -24,7 +24,7 @@ namespace ProfessionHandler.Generic
 {
     public partial class GenericProfessionHandler : Combat.ProfessionHandler
     {
-        public const float HandlerVersion = 2.52f;
+        public const float HandlerVersion = 2.53f;
 
         public Dictionary<LocalGroupMessageType, int> ChatChannels = new Dictionary<LocalGroupMessageType, int>();
         public static int ChatChannelId;

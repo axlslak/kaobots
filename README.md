@@ -134,7 +134,7 @@ For the first trial, use AO's normal raid controls with two characters. Put them
 
 ## Tower Info
 
-**Utility-TowerInfo 1.0.0** is an on-demand tower inspection utility. Build the solution's `Utility.TowerInfo` project and add `ADDME-Utility.TowerInfo.dll` to AOSharp with the normal matching dependencies. No XML files or handler/Radar plugin are required.
+**Utility-TowerInfo 1.0.1** is an on-demand tower inspection utility. Build the solution's `Utility.TowerInfo` project and add `ADDME-Utility.TowerInfo.dll` to AOSharp with the normal matching dependencies. No XML files or handler/Radar plugin are required.
 
 - `/tower info` (or `/tower`): inspect the selected known tower, otherwise the nearest tower known to this client. Prints playfield/coordinates, distance, faction and received tower class, then requests server details without changing your target. Replies add QL, owner organization ID, health and tower item IDs. Control-tower replies also expose the server's raw timer and next-gas fields; their encoding/units are not yet verified, so no countdown is derived.
 - `/tower list`: list up to 20 nearest known towers in this playfield. Zoning with the utility loaded supplies the server's tower snapshot; injecting after arrival initially gives only loaded towers/updates.

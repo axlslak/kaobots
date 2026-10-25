@@ -51,7 +51,7 @@ namespace ProfessionHandler.Generic
         {
             try
             {
-                var target = Targeting.Target as SimpleChar;
+                var target = Targeting.TargetChar;
                 if (target == null || !target.IsAlive)
                 {
                     Chat.WriteLine("Select a living target first.");

@@ -13,7 +13,7 @@ namespace TowerInfoUtility
 {
     public sealed class TowerInfoPlugin : AOPluginEntry
     {
-        private const string Version = "1.0.0";
+        private const string Version = "1.0.1";
         private const int MaxTowers = 4096;
         private readonly Dictionary<Identity, TowerRecord> _towers = new Dictionary<Identity, TowerRecord>();
         private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -66,7 +66,7 @@ namespace TowerInfoUtility
                     return;
                 }
 
-                var selected = Targeting.Target as SimpleChar;
+                var selected = Targeting.TargetChar;
                 TowerRecord record;
                 bool selectedTower = selected != null && _towers.TryGetValue(selected.Identity, out record);
                 if (selectedTower)
