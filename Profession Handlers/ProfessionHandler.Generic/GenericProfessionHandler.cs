@@ -24,7 +24,7 @@ namespace ProfessionHandler.Generic
 {
     public partial class GenericProfessionHandler : Combat.ProfessionHandler
     {
-        public const float HandlerVersion = 2.50f;
+        public const float HandlerVersion = 2.51f;
 
         public Dictionary<LocalGroupMessageType, int> ChatChannels = new Dictionary<LocalGroupMessageType, int>();
         public static int ChatChannelId;
@@ -2306,6 +2306,7 @@ namespace ProfessionHandler.Generic
 
                 BossNames = bossJson[Playfield.ModelIdentity.Instance.ToString()] is JArray a ? a.Select(x => (string)x["Name"]).ToList() : new List<string>();
 
+                RegisterGroupCommands();
                 Chat.RegisterCommand("morphs", MorphsCommand);
                 Chat.RegisterCommand("rebuff", Rebuff);
                 Chat.RegisterCommand("handlerchannel", ChannelCommand);
