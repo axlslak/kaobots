@@ -105,8 +105,9 @@ namespace ProfessionHandler.Generic
 
                 var replacing = buffs.FirstOrDefault(form.Matches);
                 int freeNCU;
+                // Remote characters report free NCU over IPC; SimpleChar has no RemainingNCU property.
                 if (!RemainingNCU.TryGetValue(target.Identity, out freeNCU))
-                    freeNCU = target.RemainingNCU;
+                    continue;
                 if (freeNCU + (replacing?.NCU ?? 0) < spell.NCU)
                     continue;
 
