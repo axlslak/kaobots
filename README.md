@@ -130,3 +130,15 @@ Commands: `/raidbars`, `/raidbars align`, `/raidbars edit all`, `/raidbars edit 
 The utility uses the native character-preference loader and exports snapshots for read-back. It imports only `RaidBarConfig` and `LockRaidBars`, preserving other settings, and attempts restoration after a failed apply. It never overwrites a live `Prefs.xml` directly. Snapshots and the two-setting `undo.xml` live in the utility's per-character AOSharp data folder. There is no forced archive reset or guessed raid-window name/offset. No dependency on Radar or Manager.Raid is added.
 
 For the first trial, use AO's normal raid controls with two characters. Put them in the same team to check vertical order and spacing, then separate teams to check horizontal spacing and group movement. Check that the actual health bars follow the setup titles. Finish, unload, and verify the native positions/lock remain, including after a normal relog. If only the handles move or the client restores old positions, use Undo and report which client/skin was used; that means the live native window path needs further investigation. Neither client engine has been runtime-validated for this utility yet.
+
+
+## Tower Info
+
+**Utility-TowerInfo 1.0.0** is an on-demand tower inspection utility. Build the solution's `Utility.TowerInfo` project and add `ADDME-Utility.TowerInfo.dll` to AOSharp with the normal matching dependencies. No XML files or handler/Radar plugin are required.
+
+- `/tower info` (or `/tower`): inspect the selected known tower, otherwise the nearest tower known to this client. Prints playfield/coordinates, distance, faction and received tower class, then requests server details without changing your target. Replies add QL, owner organization ID, health and tower item IDs. Control-tower replies also expose the server's raw timer and next-gas fields; their encoding/units are not yet verified, so no countdown is derived.
+- `/tower list`: list up to 20 nearest known towers in this playfield. Zoning with the utility loaded supplies the server's tower snapshot; injecting after arrival initially gives only loaded towers/updates.
+
+A nearest tower is **not proof of which site you are standing in**. This version does not resolve site names/numbers/boundaries/level ranges or organization names, and cannot establish an empty site's peace/war state or planting time. No visible/known tower does not prove that a site is empty or plantable. Use the native Controller Build Check for its live placement requirements. Tower QL is not the site's level range.
+
+Cached replies are labelled with their age; each info command requests fresh details (two-second throttle, eight-second reply timeout). This is a one-shot read-only utility: it never plants, attacks, changes target or automatically refreshes requests. Packet updates are cached only for the current playfield; no raw tower-proxy memory offsets are used. Source delivery only; compilation and in-game verification are pending.
