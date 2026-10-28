@@ -150,6 +150,6 @@ Cached replies are labelled with their age; each info command requests fresh det
 
 ## New-client handler observations
 
-Handler 2.54 adds temporary `[Handler new client]` chat messages in the generic handler on the new engine only. Every three seconds it explains update gates, selected/fighting targets, combat state, specials and perk/nano readiness/rule totals. Action-attempt messages are limited to one per kind per second; errors are limited to one per three seconds. These are observations, not confirmation that an action landed. Classic-client decisions and existing target/settings checks are unchanged. This is diagnostic source on `new-client-handler`; runtime compatibility remains unverified.
+Handler 2.54 adds temporary `[Handler new client]` chat messages in the generic handler on the new engine only. Every three seconds it explains update gates, selected/fighting targets, combat state, specials and perk/nano readiness/rule totals. Action-attempt messages are limited to one per kind per second; errors are limited to one per three seconds. These are observations, not confirmation that an action landed. Classic-client decisions and existing target/settings checks are unchanged. Use `main` for both clients; the handler enables these observations only on the new engine. Runtime compatibility remains unverified.
 
 Use the matching Generic and profession outputs, start a manual attack with only the handler enabled, and inspect the prefixed chat lines. No new plugin or command is required. No automatic build or release is enabled.
