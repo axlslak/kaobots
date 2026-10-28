@@ -18,8 +18,8 @@ Manager Sync, HelpManager and Attack Manager now attempt their normal startup on
 
 ## Versions
 
-- In-game handler and settings version: **2.49**. The footer reports the source revision independently of saved preferences.
-- Profession handler file versions: **1.0.8.0**; assembly identities remain unchanged for compatibility.
+- In-game handler and settings version: **2.54**. The footer reports the source revision independently of saved preferences.
+- Profession handler file versions: **1.0.13.0**; assembly identities remain unchanged for compatibility.
 - HelpManager: **2.0.10**.
 - Manager Sync: **2.0.13**.
 - Attack Manager: **2.0.5**.
@@ -147,3 +147,9 @@ For the first trial, use AO's normal raid controls with two characters. Put them
 A nearest tower is **not proof of which site you are standing in**. This version does not resolve site names/numbers/boundaries/level ranges or organization names, and cannot establish an empty site's peace/war state or planting time. No visible/known tower does not prove that a site is empty or plantable. Use the native Controller Build Check for its live placement requirements. Tower QL is not the site's level range.
 
 Cached replies are labelled with their age; each info command requests fresh details (two-second throttle, eight-second reply timeout). This is a one-shot read-only utility: it never plants, attacks, changes target or automatically refreshes requests. Packet updates are cached only for the current playfield; no raw tower-proxy memory offsets are used. Source delivery only; compilation and in-game verification are pending.
+
+## New-client handler observations
+
+Handler 2.54 adds temporary `[Handler new client]` chat messages in the generic handler on the new engine only. Every three seconds it explains update gates, selected/fighting targets, combat state, specials and perk/nano readiness/rule totals. Action-attempt messages are limited to one per kind per second; errors are limited to one per three seconds. These are observations, not confirmation that an action landed. Classic-client decisions and existing target/settings checks are unchanged. This is diagnostic source on `new-client-handler`; runtime compatibility remains unverified.
+
+Use the matching Generic and profession outputs, start a manual attack with only the handler enabled, and inspect the prefixed chat lines. No new plugin or command is required. No automatic build or release is enabled.

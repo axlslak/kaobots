@@ -12,12 +12,36 @@ namespace ProfessionHandler.Generic
         {
             try
             {
-                if (!_settings["Specials"].AsBool()) return;
-                if (Game.IsZoning) return;
-                if (target == null) return;
-                if (target.IsPlayer) return;
-                if (target.Buffs.Contains(302808)) return;
-                if (DynelManager.LocalPlayer.WeaponHolder.WeaponsAreBusy) return;
+                if (!_settings["Specials"].AsBool())
+                {
+                    if (NewClientTraceUpdate) TraceNewClient("Specials skipped: Specials setting is off.");
+                    return;
+                }
+                if (Game.IsZoning)
+                {
+                    if (NewClientTraceUpdate) TraceNewClient("Specials skipped: zoning.");
+                    return;
+                }
+                if (target == null)
+                {
+                    if (NewClientTraceUpdate) TraceNewClient("Specials skipped: no fighting target.");
+                    return;
+                }
+                if (target.IsPlayer)
+                {
+                    if (NewClientTraceUpdate) TraceNewClient("Specials skipped: target rejected by existing target policy.");
+                    return;
+                }
+                if (target.Buffs.Contains(302808))
+                {
+                    if (NewClientTraceUpdate) TraceNewClient("Specials skipped: target has blocking buff 302808.");
+                    return;
+                }
+                if (DynelManager.LocalPlayer.WeaponHolder.WeaponsAreBusy)
+                {
+                    if (NewClientTraceUpdate) TraceNewClient("Specials skipped: weapon holder reports weapons busy.");
+                    return;
+                }
 
                 var specials = DynelManager.LocalPlayer.SpecialAttacks.Where(sa => sa.IsAvailable() && sa.IsInRange(target));
                 
@@ -77,6 +101,10 @@ namespace ProfessionHandler.Generic
                     return true;
                 });
 
+                if (NewClientTraceUpdate && special == null)
+                    TraceNewClient("Specials: none passed readiness, range and existing ammo/position checks.");
+                if (NewClientTraceEngine && special != null)
+                    TraceNewClientAction("special", special, target);
                 special?.UseOn(target);
             }
             catch (Exception ex)
