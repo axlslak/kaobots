@@ -16,7 +16,7 @@ namespace ManagerHelp
     public partial class ManagerHelp : AOPluginEntry
     {
         const string PluginName = "ManagerHelp";
-        private string Version_Number = "2.0.9";
+        private string Version_Number = "2.0.10";
 
         private IPCChannel IPCChannel;
 
@@ -76,12 +76,6 @@ namespace ManagerHelp
         {
             try
             {
-                if (Game.IsNewEngine)
-                {
-                    Chat.WriteLine("Does not work on this engine!");
-                    return;
-                }
-
                 _settings = new Settings(PluginName);
 
                 _settings.AddVariable("IPCChannel", 2);

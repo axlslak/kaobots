@@ -12,12 +12,17 @@ Credit to **Knowidea / never-knows-best (Know)** and all original contributors. 
 - **HelpManager 42 Autofence:** optional per-character attempts to use a nearby Biological Transceiver until its protection buff is present. Requires 10 free NCU; delays attempts while busy and stops attempting when the object is absent or out of range. It does not navigate or manage pet movement.
 - **Manager Sync:** stop repeated syncbag scans after a scheduled pass; preserve reopening after zoning. Give OnUpdate work a nonblocking one-second startup grace period. Remember the saved outside team invite preference across loads; save invite state changes immediately.
 
+## Manager startup on the new client
+
+Manager Sync, HelpManager and Attack Manager now attempt their normal startup on either client instead of returning immediately on the new engine. Existing settings, enable switches and error handling remain in place. This removes the blanket startup refusal so actual compatibility failures can be investigated; it does not establish that every manager feature works on the new client. Source review only; no builds, tests, releases or automatic CI were run.
+
 ## Versions
 
 - In-game handler and settings version: **2.49**. The footer reports the source revision independently of saved preferences.
 - Profession handler file versions: **1.0.8.0**; assembly identities remain unchanged for compatibility.
-- HelpManager: **2.0.9**.
-- Manager Sync: **2.0.12**.
+- HelpManager: **2.0.10**.
+- Manager Sync: **2.0.13**.
+- Attack Manager: **2.0.5**.
 
 ## Status and known issues
 

@@ -19,7 +19,7 @@ namespace ManagerAttack
     public partial class ManagerAttack : AOPluginEntry
     {
         const string PluginName = "ManagerAttack";
-        private string Version_Number = "2.0.4";
+        private string Version_Number = "2.0.5";
 
         private static InstancesConfig _config;
         private static string _configPath;
@@ -58,12 +58,6 @@ namespace ManagerAttack
         {
             try
             {
-                if (Game.IsNewEngine)
-                {
-                    Chat.WriteLine("Does not work on this engine!");
-                    return;
-                }
-
                 PluginDir = PluginDirectory;
 
                 _settings = new Settings(PluginName);

@@ -22,7 +22,7 @@ namespace ManagerSync
     {
         public const string PluginName = "ManagerSync";
 
-        public static string Version_Number = "Version = 2.0.12";
+        public static string Version_Number = "Version = 2.0.13";
 
         public static IPCChannel _IPCChannel;
 
@@ -67,12 +67,6 @@ namespace ManagerSync
         {
             try
             {
-                if (Game.IsNewEngine)
-                {
-                    Chat.WriteLine("Does not work on this engine!");
-                    return;
-                }
-
                 _settings = new Settings(PluginName);
 
                 PluginDir = PluginDirectory;
