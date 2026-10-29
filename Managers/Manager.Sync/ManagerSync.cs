@@ -22,7 +22,7 @@ namespace ManagerSync
     {
         public const string PluginName = "ManagerSync";
 
-        public static string Version_Number = "Version = 2.0.13";
+        public static string Version_Number = "Version = 2.0.14";
 
         public static IPCChannel _IPCChannel;
 
@@ -57,6 +57,7 @@ namespace ManagerSync
         public static bool _pendingReform = false;
 
         public static List<Identity> RaidTeamIdentities = new List<Identity>();
+        private SyncBenchmark _benchmark;
         private readonly Stopwatch _startupGrace = new Stopwatch();
         private bool _updatesReady;
         private double teamRaidDelay = 0.0;
@@ -144,6 +145,9 @@ namespace ManagerSync
                     SpreadOut();
                 });
 
+                _benchmark = new SyncBenchmark(LogFile.DirectoryName, DynelManager.LocalPlayer.Name, Version_Number);
+                Game.TeleportStarted += BenchmarkZoneStarted;
+                Game.TeleportFailed += BenchmarkZoneFailed;
                 Game.OnUpdate += OnUpdate;
                 Network.N3MessageSent += Sender.Network_N3MessageSent;
                 Network.N3MessageReceived += N3MessageReceived;
@@ -173,6 +177,9 @@ namespace ManagerSync
 
         public override void Teardown()
         {
+            _benchmark?.Stop();
+            Game.TeleportStarted -= BenchmarkZoneStarted;
+            Game.TeleportFailed -= BenchmarkZoneFailed;
             Save();
             Game.OnUpdate -= OnUpdate;
             Network.N3MessageSent -= Sender.Network_N3MessageSent;
@@ -185,10 +192,14 @@ namespace ManagerSync
             _infoWindow?.Close();
         }
 
+        private void BenchmarkZoneStarted(object sender, EventArgs e) => _benchmark?.ZoneStarted();
+        private void BenchmarkZoneFailed(object sender, EventArgs e) => _benchmark?.ZoneEnded(true);
+
         #region Event Subscriptions
 
         void OnUpdate(object s, float deltaTime)
         {
+            _benchmark?.Tick();
             // Let initialization settle without blocking the game thread.
             if (!_updatesReady)
             {
@@ -322,6 +333,7 @@ namespace ManagerSync
 
         void TeleportEnded(object s, EventArgs e)
         {
+            _benchmark?.ZoneEnded(false);
             
             if (!_settings["Enable"].AsBool()) return;
             if (!_settings["SyncBags"].AsBool()) return;
@@ -334,6 +346,7 @@ namespace ManagerSync
 
         private void PlayfieldInit(object sender, uint e)
         {
+            _benchmark?.PlayfieldInitialized();
             if (!_settings["Enable"].AsBool()) return;
             if (!_settings["SyncBags"].AsBool()) return;
             if (bagDelay == 0)

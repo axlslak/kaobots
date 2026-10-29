@@ -66,6 +66,7 @@
     <Compile Include="IPCMessages\MoveMessage.cs" />
     <Compile Include="Receiver.cs" />
     <Compile Include="Sender.cs" />
+    <Compile Include="SyncBenchmark.cs" />
     <Compile Include="ManagerSync.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
