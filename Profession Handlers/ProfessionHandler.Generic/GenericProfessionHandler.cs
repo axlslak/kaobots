@@ -24,7 +24,7 @@ namespace ProfessionHandler.Generic
 {
     public partial class GenericProfessionHandler : Combat.ProfessionHandler
     {
-        public const float HandlerVersion = 2.54f;
+        public const float HandlerVersion = 2.55f;
 
         public Dictionary<LocalGroupMessageType, int> ChatChannels = new Dictionary<LocalGroupMessageType, int>();
         public static int ChatChannelId;
@@ -2792,9 +2792,9 @@ namespace ProfessionHandler.Generic
                 if (NewClientTraceUpdate)
                     TraceNewClientCombatState();
 
-                if (lp.IsAttacking && lp.FightingTarget != null)
+                if (lp.IsAttacking && HandlerFightingTarget != null)
                 {
-                    if (lp.FightingTarget.IsPlayer)
+                    if (HandlerFightingTarget.IsPlayer)
                     {
                         if (NewClientTraceUpdate) TraceNewClient("Combat update stopped: fighting target rejected by the existing target policy.");
                         lp.StopAttack(false);
@@ -2805,17 +2805,17 @@ namespace ProfessionHandler.Generic
                         FightTimeStamp = Time.AONormalTime;
 
                     if (NewClientTraceEngine) NewClientTraceStage = "specials";
-                    PerformSpecialAttacks(lp.FightingTarget);
+                    PerformSpecialAttacks(HandlerFightingTarget);
 
                     if (NewClientTraceEngine) NewClientTraceStage = "pet attack sync";
                     if (_settings["SyncPets"] == null || _settings["SyncPets"].AsBool())
-                        SyncPetAttacking(lp.FightingTarget);
+                        SyncPetAttacking(HandlerFightingTarget);
 
                     _lastCombatTime = Time.AONormalTime;
                 }
                 else
                 {
-                    if (NewClientTraceUpdate) TraceNewClient("Specials/pet gate closed: requires IsAttacking=true and a non-null FightingTarget.");
+                    if (NewClientTraceUpdate) TraceNewClient("Specials/pet gate closed: requires IsAttacking=true and a resolved fighting target.");
                     FightTimeStamp = 0;
                 }
 
@@ -2889,10 +2889,12 @@ namespace ProfessionHandler.Generic
         public bool AttackingMob(SimpleChar mob)
         {
             if (Game.IsZoning) return false;
+            if (NewClientTraceEngine && HandlerFightingTarget?.Identity == mob.Identity)
+                return true;
             if (Team.IsInTeam)
                 return Team.Members.Any(c => c.Character != null && c.Character.FightingTarget?.Identity == mob.Identity);
 
-            return DynelManager.LocalPlayer.FightingTarget?.Identity == mob.Identity;
+            return HandlerFightingTarget?.Identity == mob.Identity;
         }
 
         public bool AttackingTeam(SimpleChar mob)

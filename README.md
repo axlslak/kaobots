@@ -18,8 +18,8 @@ Manager Sync, HelpManager and Attack Manager now attempt their normal startup on
 
 ## Versions
 
-- In-game handler and settings version: **2.54**. The footer reports the source revision independently of saved preferences.
-- Profession handler file versions: **1.0.13.0**; assembly identities remain unchanged for compatibility.
+- In-game handler and settings version: **2.55**. The footer reports the source revision independently of saved preferences.
+- Profession handler file versions: **1.0.14.0**; assembly identities remain unchanged for compatibility.
 - HelpManager: **2.0.10**.
 - Manager Sync: **2.0.13**.
 - Attack Manager: **2.0.5**.
@@ -153,3 +153,9 @@ Cached replies are labelled with their age; each info command requests fresh det
 Handler 2.54 adds temporary `[Handler new client]` chat messages in the generic handler on the new engine only. Every three seconds it explains update gates, selected/fighting targets, combat state, specials and perk/nano readiness/rule totals. Action-attempt messages are limited to one per kind per second; errors are limited to one per three seconds. These are observations, not confirmation that an action landed. Classic-client decisions and existing target/settings checks are unchanged. Use `main` for both clients; the handler enables these observations only on the new engine. Runtime compatibility remains unverified.
 
 Use the matching Generic and profession outputs, start a manual attack with only the handler enabled, and inspect the prefixed chat lines. No new plugin or command is required. No automatic build or release is enabled.
+
+## New-client local fighting target
+
+The generic handler resolves the local player's current fighting target through the client's native combat-identity query on the new engine. It refreshes the target once per handler update and resolves only a loaded, non-self character. Current selection stays independent, and existing settings, target checks and action rules remain in place. The classic engine keeps its existing SDK target read.
+
+The diagnostic line includes `nativeFightId`, `nativeAttacking` and `targetRead`. Source and native ABI review only; owner compilation and a manual-combat trial are still required. This local handler change does not alter other plugins' SDK target reads.

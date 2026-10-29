@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
+using AOSharp.Common.Unmanaged.Imports;
 using AOSharp.Common.GameData;
 using AOSharp.Core;
 using AOSharp.Core.Inventory;
@@ -25,7 +27,7 @@ namespace ProfessionHandler.Generic.Combat
 
         private int LastQueue = 0;
 
-        // Temporary new-client observations; no target or action decisions are changed.
+        // New-client observations; engine selection is cached once for this handler.
         protected static readonly bool NewClientTraceEngine = Game.IsNewEngine;
         private double _nextNewClientTrace;
         private Dictionary<string, double> _newClientActionTrace;
@@ -33,10 +35,59 @@ namespace ProfessionHandler.Generic.Combat
         protected bool NewClientTraceUpdate;
         protected string NewClientTraceStage = "update";
 
+        // Query the local combat target by identity; selection is not a fighting target.
+        [DllImport("Gamecode.dll", EntryPoint = "?N3Msg_GetAttackingID@n3EngineClientAnarchy_t@@QBE_NAAVIdentity_t@@@Z", CallingConvention = CallingConvention.ThisCall)]
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static extern bool GetNewClientAttackingId(IntPtr engine, ref Identity target);
+
+        private SimpleChar _newClientFightingTarget;
+        private Identity _newClientFightingIdentity = Identity.None;
+        private bool _newClientNativeAttacking;
+        private bool _newClientTargetQueryUnavailable;
+        private string _newClientFightingStatus = "not sampled";
+
+        protected SimpleChar HandlerFightingTarget => NewClientTraceEngine
+            ? _newClientFightingTarget : DynelManager.LocalPlayer.FightingTarget;
+
+        private void RefreshNewClientFightingTarget()
+        {
+            _newClientFightingStatus = "idle";
+            var local = DynelManager.LocalPlayer;
+            if (local == null || !local.IsAttacking) return;
+            if (_newClientTargetQueryUnavailable)
+            {
+                _newClientFightingStatus = "native query unavailable";
+                return;
+            }
+
+            _newClientFightingStatus = "engine unavailable";
+            var engine = N3Engine_t.GetInstance();
+            if (engine == IntPtr.Zero) return;
+
+            _newClientNativeAttacking = GetNewClientAttackingId(engine, ref _newClientFightingIdentity);
+            _newClientFightingStatus = "native reports idle";
+            if (!_newClientNativeAttacking) return;
+            _newClientFightingStatus = "invalid or self target";
+            if (_newClientFightingIdentity.Type != IdentityType.SimpleChar || _newClientFightingIdentity == local.Identity) return;
+
+            _newClientFightingStatus = "target not loaded";
+            var target = DynelManager.GetDynel<SimpleChar>(_newClientFightingIdentity);
+            if (target != null)
+            {
+                _newClientFightingTarget = target;
+                _newClientFightingStatus = "resolved by native combat identity";
+            }
+        }
+
         private void BeginNewClientTrace()
         {
             NewClientTraceUpdate = false;
             if (!NewClientTraceEngine) return;
+            // Drop every previous frame's object before zoning/disabled/death early returns.
+            _newClientFightingTarget = null;
+            _newClientFightingIdentity = Identity.None;
+            _newClientNativeAttacking = false;
+            _newClientFightingStatus = "update gated";
             NewClientTraceStage = "update gates";
             var now = GenericProfessionHandler.Now;
             if (now < _nextNewClientTrace) return;
@@ -92,7 +143,7 @@ namespace ProfessionHandler.Generic.Combat
             try
             {
                 var lp = DynelManager.LocalPlayer;
-                WriteNewClientTrace($"Local={lp.Identity}; selected={DescribeNewClientTarget(Targeting.TargetChar)}; attacking={lp.IsAttacking}; fighting={DescribeNewClientTarget(lp.FightingTarget)}; Specials={GenericProfessionHandler._settings["Specials"].AsBool()}; PetSync={GenericProfessionHandler._settings["SyncPets"] == null || GenericProfessionHandler._settings["SyncPets"].AsBool()}");
+                WriteNewClientTrace($"Local={lp.Identity}; selected={DescribeNewClientTarget(Targeting.TargetChar)}; attacking={lp.IsAttacking}; fighting={DescribeNewClientTarget(HandlerFightingTarget)}; nativeFightId={_newClientFightingIdentity}; nativeAttacking={_newClientNativeAttacking}; targetRead={_newClientFightingStatus}; Specials={GenericProfessionHandler._settings["Specials"].AsBool()}; PetSync={GenericProfessionHandler._settings["SyncPets"] == null || GenericProfessionHandler._settings["SyncPets"].AsBool()}");
             }
             catch (Exception error) { TraceNewClientReadError(error); }
         }
@@ -178,13 +229,28 @@ namespace ProfessionHandler.Generic.Combat
 
             GenericProfessionHandler.SkillLock.RemoveWhere(x => (int)Time.AONormalTime > x.Item2);
 
+            if (NewClientTraceEngine)
+            {
+                try { RefreshNewClientFightingTarget(); }
+                catch (Exception error)
+                {
+                    _newClientFightingTarget = null;
+                    _newClientFightingStatus = "native query failed";
+                    // An unavailable query must not cause a repeated exception on every update.
+                    if (error is EntryPointNotFoundException || error is DllNotFoundException)
+                        _newClientTargetQueryUnavailable = true;
+                    TraceNewClientError(error, "native fighting-target query");
+                    GenericProfessionHandler.ErrorCatch(error);
+                }
+            }
+
             OnUpdate(deltaTime);
         }
 
         protected virtual void OnUpdate(float deltaTime)
         {
             if (NewClientTraceEngine) NewClientTraceStage = "scheduler fighting-target read";
-            var fightingTarget = DynelManager.LocalPlayer.FightingTarget;
+            var fightingTarget = HandlerFightingTarget;
             var trace = NewClientTraceUpdate ? new NewClientRuleCounts() : null;
             if (NewClientTraceUpdate)
                 TraceNewClientScheduler(fightingTarget);
