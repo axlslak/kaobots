@@ -22,7 +22,7 @@ namespace ManagerSync
     {
         public const string PluginName = "ManagerSync";
 
-        public static string Version_Number = "Version = 2.0.14";
+        public static string Version_Number = "Version = 2.0.15";
 
         public static IPCChannel _IPCChannel;
 

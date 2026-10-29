@@ -21,7 +21,7 @@ Manager Sync, HelpManager and Attack Manager now attempt their normal startup on
 - In-game handler and settings version: **2.56**. The footer reports the source revision independently of saved preferences.
 - Profession handler file versions: **1.0.15.0**; assembly identities remain unchanged for compatibility.
 - HelpManager: **2.0.10**.
-- Manager Sync: **2.0.14**.
+- Manager Sync: **2.0.15**.
 - Attack Manager: **2.0.5**.
 
 ## Status and known issues
@@ -157,8 +157,10 @@ Handler 2.56 removes the temporary combat diagnostics, trace counters and repeat
 
 ## Sync area benchmark
 
-Manager Sync 2.0.14 counts its OnUpdate callbacks on every loaded client, including while Sync is disabled. It separates foreground/background cycles and elapsed wall time, reports rates and the longest callback gap, and starts a new sample after zoning or playfield initialization. One compact chat summary appears after the transition; unloading saves the final sample to the file.
+Manager Sync 2.0.15 counts its OnUpdate callbacks on every loaded client, including while Sync is disabled. It separates foreground/background cycles and elapsed wall time, reports rates and the longest callback gap, and starts a new sample after zoning or playfield initialization. One compact chat summary appears after the transition; unloading saves the final sample to the file.
 
 Per-character records are in `%LOCALAPPDATA%\AOSharp\ManagerSync\<character>\sync-benchmark.log`. UTC AREA_START/AREA_END and ZONE_START/ZONE_END records let you compare clients' observed arrival/departure times and zone durations. Failed or interrupted zoning is labelled. These timestamps describe callbacks observed by the plugin; a stalled game can delay the callbacks themselves. Rates measure Sync callbacks, not rendered FPS. Focus time between callbacks is attributed to the preceding observed focus state, so long stalls make the split approximate.
 
 Keep the same two clients and settings, zone through quiet areas, swap the foreground driver, then repeat in a populated city. Compare the files by character, area ID and UTC time. No per-frame file/chat writes, extra IPC traffic or movement changes are added.
+
+The temporary extended benchmark requires the matching rebuilt AOSharp **2.7.30** output (Core file **1.0.4.0**) and a fresh injection. AREA_END records also contain `core_FG_*` / `core_BG_*`: `work` is completed Core-update duration, `gap` is time from the previous Core exit to the next entry, and `sync` is time from Core entry to the first Sync callback. Each has sample count, average and maximum milliseconds. Focus for work/Sync is observed at Core entry; gaps use the preceding completed update's focus, so transitions are approximate. Zoning and boundary log/chat output are excluded by pausing Core samples between areas; an in-flight update is excluded from completed work and labelled `core_partial=1`. Counts can therefore differ slightly from Sync callback counts. A missing Sync callback is visible through differing work/sync counts. Outside-Core gaps include native engine work, bootstrap/early callbacks and OS/driver scheduling, so they alone do not prove a governor. Files remain append-only. **Remove the benchmark and Core timing hooks after the trial.**

@@ -8,7 +8,8 @@ using AOSharp.Core.UI;
 
 namespace ManagerSync
 {
-    // Counts Sync callbacks only. File/chat output is restricted to boundaries.
+    // TEMPORARY: remove benchmark and Core timing hooks after the trial.
+    // File/chat output is restricted to boundaries.
     internal sealed class SyncBenchmark
     {
         [DllImport("user32.dll")]
@@ -16,6 +17,9 @@ namespace ManagerSync
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
+        // Bind once so existing SDK package references remain compatible.
+        private readonly Action _startCoreArea, _markCoreSync, _stopCore;
+        private readonly Func<string> _finishCoreArea;
         private readonly uint _processId;
         private readonly string _character;
         private readonly string _path;
@@ -33,9 +37,19 @@ namespace ManagerSync
                 _path = Path.Combine(directory, "sync-benchmark.log");
                 using (var process = Process.GetCurrentProcess())
                     _processId = (uint)process.Id;
+                var timing = typeof(Game).Assembly.GetType("AOSharp.Core.TemporaryUpdateTiming");
+                if (timing != null)
+                {
+                    _startCoreArea = (Action)Delegate.CreateDelegate(typeof(Action), timing.GetMethod("StartArea"));
+                    _markCoreSync = (Action)Delegate.CreateDelegate(typeof(Action), timing.GetMethod("MarkSync"));
+                    _stopCore = (Action)Delegate.CreateDelegate(typeof(Action), timing.GetMethod("Stop"));
+                    _finishCoreArea = (Func<string>)Delegate.CreateDelegate(typeof(Func<string>), timing.GetMethod("FinishArea"));
+                }
                 Write("LOAD " + version + " engine=" + (Game.IsNewEngine ? "new" : "classic")
-                    + " pid=" + _processId + " metric=Sync.OnUpdate");
+                    + " pid=" + _processId + " metric=Sync.OnUpdate core_timing=" + (_markCoreSync != null ? "entry-exit-v1" : "unavailable"));
                 Chat.WriteLine("[Sync bench] Area summaries enabled. Log: " + _path);
+                if (_markCoreSync == null)
+                    Chat.WriteLine("[Sync bench] Core timings unavailable; use AOSharp 2.7.30 and a fresh injection.");
             }
             catch (Exception error) { Fail(error); }
         }
@@ -73,6 +87,7 @@ namespace ManagerSync
             if (_failed) return;
             try
             {
+                _markCoreSync?.Invoke();
                 if (_zoning || Game.IsZoning) return;
                 long now = Now;
                 bool foreground = Foreground();
@@ -85,6 +100,7 @@ namespace ManagerSync
                     _foregroundSeconds = _backgroundSeconds = _maxGap = 0;
                     _lastForeground = foreground;
                     _active = true;
+                    _startCoreArea?.Invoke();
                     Write("AREA_START area=" + _area + " started_utc=" + _startedUtc
                         + (_zoneEnd != 0 ? " first_update_after_zone_end_s=" + Number(Seconds(now - _zoneEnd)) : ""));
                     if (_summary != null)
@@ -103,6 +119,7 @@ namespace ManagerSync
         private void FinishArea(string reason, long now)
         {
             if (!_active) return;
+            string coreTiming = _finishCoreArea?.Invoke() ?? " core_timing=unavailable";
             Account(now);
             double elapsed = Seconds(now - _start);
             long cycles = _foregroundCycles + _backgroundCycles;
@@ -112,7 +129,7 @@ namespace ManagerSync
                 + "Hz max_gap_s=" + Number(_maxGap);
             Write("AREA_END reason=" + reason + " started_utc=" + _startedUtc + " " + _summary
                 + " foreground_s=" + Number(_foregroundSeconds)
-                + " background_s=" + Number(_backgroundSeconds));
+                + " background_s=" + Number(_backgroundSeconds) + coreTiming);
             _active = false;
         }
 
@@ -165,6 +182,7 @@ namespace ManagerSync
         private void Fail(Exception error)
         {
             _failed = true;
+            _stopCore?.Invoke();
             try { Chat.WriteLine("[Sync bench] Stopped: " + error.Message + ". Log: " + _path); }
             catch (Exception) { }
         }
