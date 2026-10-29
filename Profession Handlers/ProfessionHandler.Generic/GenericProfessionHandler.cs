@@ -24,7 +24,7 @@ namespace ProfessionHandler.Generic
 {
     public partial class GenericProfessionHandler : Combat.ProfessionHandler
     {
-        public const float HandlerVersion = 2.55f;
+        public const float HandlerVersion = 2.56f;
 
         public Dictionary<LocalGroupMessageType, int> ChatChannels = new Dictionary<LocalGroupMessageType, int>();
         public static int ChatChannelId;
@@ -2758,9 +2758,7 @@ namespace ProfessionHandler.Generic
 
                 CancelHostileAuras();
 
-                if (NewClientTraceEngine) NewClientTraceStage = "generic UseItems";
                 UseItems();
-                if (NewClientTraceEngine) NewClientTraceStage = "ammo";
                 Ammo.CrateOfAmmo();
 
                 if ((Profession)DynelManager.LocalPlayer.GetStat(Stat.VisualProfession) == Profession.Adventurer)
@@ -2787,16 +2785,12 @@ namespace ProfessionHandler.Generic
                             }
                     }
 
-                if (NewClientTraceEngine) NewClientTraceStage = "manual-combat state";
                 var lp = DynelManager.LocalPlayer;
-                if (NewClientTraceUpdate)
-                    TraceNewClientCombatState();
 
                 if (lp.IsAttacking && HandlerFightingTarget != null)
                 {
                     if (HandlerFightingTarget.IsPlayer)
                     {
-                        if (NewClientTraceUpdate) TraceNewClient("Combat update stopped: fighting target rejected by the existing target policy.");
                         lp.StopAttack(false);
                         return;
                     }
@@ -2804,30 +2798,22 @@ namespace ProfessionHandler.Generic
                     if (FightTimeStamp == 0)
                         FightTimeStamp = Time.AONormalTime;
 
-                    if (NewClientTraceEngine) NewClientTraceStage = "specials";
                     PerformSpecialAttacks(HandlerFightingTarget);
 
-                    if (NewClientTraceEngine) NewClientTraceStage = "pet attack sync";
                     if (_settings["SyncPets"] == null || _settings["SyncPets"].AsBool())
                         SyncPetAttacking(HandlerFightingTarget);
 
                     _lastCombatTime = Time.AONormalTime;
                 }
                 else
-                {
-                    if (NewClientTraceUpdate) TraceNewClient("Specials/pet gate closed: requires IsAttacking=true and a resolved fighting target.");
                     FightTimeStamp = 0;
-                }
 
-                if (NewClientTraceEngine) NewClientTraceStage = "NPC combat scan";
                 Attacked = DynelManager.NPCs.Any(n => n.IsAttacking && n.FightingTarget != null && n.FightingTarget.Identity == lp.Identity);
 
-                if (NewClientTraceEngine) NewClientTraceStage = "generic action scheduler";
                 base.OnUpdate(deltaTime);
             }
             catch (Exception ex)
             {
-                if (NewClientTraceEngine) TraceNewClientError(ex, NewClientTraceStage);
                 ErrorCatch(ex);
             }
         }
@@ -2889,7 +2875,7 @@ namespace ProfessionHandler.Generic
         public bool AttackingMob(SimpleChar mob)
         {
             if (Game.IsZoning) return false;
-            if (NewClientTraceEngine && HandlerFightingTarget?.Identity == mob.Identity)
+            if (NewClientEngine && HandlerFightingTarget?.Identity == mob.Identity)
                 return true;
             if (Team.IsInTeam)
                 return Team.Members.Any(c => c.Character != null && c.Character.FightingTarget?.Identity == mob.Identity);
@@ -3144,8 +3130,6 @@ namespace ProfessionHandler.Generic
                 var attackPet = localPlayer.Pets.FirstOrDefault(a => a.Type == PetType.Attack);
                 var supportPet = localPlayer.Pets.FirstOrDefault(a => a.Type == PetType.Support);
 
-                if (NewClientTraceUpdate)
-                    TraceNewClientPets(localPlayer, attackPet, supportPet);
                 switch (localPlayer.Profession)
                 {
                     case Profession.Metaphysicist:
@@ -3395,7 +3379,6 @@ namespace ProfessionHandler.Generic
 
         public static void ErrorCatch(Exception ex)
         {
-            if (NewClientTraceEngine) Combat.ProfessionHandler.TraceNewClientError(ex, "handler callback");
             HandlerStartup.RecordFailure(ex);
             var output = ex.Message + Environment.NewLine + "   at " + ex.TargetSite?.DeclaringType?.FullName + "." + ex.TargetSite?.Name + Environment.NewLine + "   at " + ex.StackTrace;
 

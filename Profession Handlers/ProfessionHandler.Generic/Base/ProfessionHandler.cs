@@ -27,173 +27,35 @@ namespace ProfessionHandler.Generic.Combat
 
         private int LastQueue = 0;
 
-        // New-client observations; engine selection is cached once for this handler.
-        protected static readonly bool NewClientTraceEngine = Game.IsNewEngine;
-        private double _nextNewClientTrace;
-        private Dictionary<string, double> _newClientActionTrace;
-        private static double _nextNewClientErrorTrace;
-        protected bool NewClientTraceUpdate;
-        protected string NewClientTraceStage = "update";
+        // Cache engine selection; only the new engine needs the native combat-target query.
+        protected static readonly bool NewClientEngine = Game.IsNewEngine;
 
-        // Query the local combat target by identity; selection is not a fighting target.
+        // Query the actual fighting target independently of the current selection.
         [DllImport("Gamecode.dll", EntryPoint = "?N3Msg_GetAttackingID@n3EngineClientAnarchy_t@@QBE_NAAVIdentity_t@@@Z", CallingConvention = CallingConvention.ThisCall)]
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool GetNewClientAttackingId(IntPtr engine, ref Identity target);
 
         private SimpleChar _newClientFightingTarget;
-        private Identity _newClientFightingIdentity = Identity.None;
-        private bool _newClientNativeAttacking;
         private bool _newClientTargetQueryUnavailable;
-        private string _newClientFightingStatus = "not sampled";
 
-        protected SimpleChar HandlerFightingTarget => NewClientTraceEngine
+        protected SimpleChar HandlerFightingTarget => NewClientEngine
             ? _newClientFightingTarget : DynelManager.LocalPlayer.FightingTarget;
 
         private void RefreshNewClientFightingTarget()
         {
-            _newClientFightingStatus = "idle";
+            if (_newClientTargetQueryUnavailable) return;
+
             var local = DynelManager.LocalPlayer;
             if (local == null || !local.IsAttacking) return;
-            if (_newClientTargetQueryUnavailable)
-            {
-                _newClientFightingStatus = "native query unavailable";
-                return;
-            }
 
-            _newClientFightingStatus = "engine unavailable";
             var engine = N3Engine_t.GetInstance();
             if (engine == IntPtr.Zero) return;
 
-            _newClientNativeAttacking = GetNewClientAttackingId(engine, ref _newClientFightingIdentity);
-            _newClientFightingStatus = "native reports idle";
-            if (!_newClientNativeAttacking) return;
-            _newClientFightingStatus = "invalid or self target";
-            if (_newClientFightingIdentity.Type != IdentityType.SimpleChar || _newClientFightingIdentity == local.Identity) return;
+            var identity = Identity.None;
+            if (!GetNewClientAttackingId(engine, ref identity)) return;
+            if (identity.Type != IdentityType.SimpleChar || identity == local.Identity) return;
 
-            _newClientFightingStatus = "target not loaded";
-            var target = DynelManager.GetDynel<SimpleChar>(_newClientFightingIdentity);
-            if (target != null)
-            {
-                _newClientFightingTarget = target;
-                _newClientFightingStatus = "resolved by native combat identity";
-            }
-        }
-
-        private void BeginNewClientTrace()
-        {
-            NewClientTraceUpdate = false;
-            if (!NewClientTraceEngine) return;
-            // Drop every previous frame's object before zoning/disabled/death early returns.
-            _newClientFightingTarget = null;
-            _newClientFightingIdentity = Identity.None;
-            _newClientNativeAttacking = false;
-            _newClientFightingStatus = "update gated";
-            NewClientTraceStage = "update gates";
-            var now = GenericProfessionHandler.Now;
-            if (now < _nextNewClientTrace) return;
-            _nextNewClientTrace = now + 3.0;
-            NewClientTraceUpdate = true;
-        }
-
-        private static void WriteNewClientTrace(string message)
-        {
-            try { Chat.WriteLine($"[Handler new client] {message}"); }
-            catch (Exception) { /* Diagnostic formatting must not interrupt the handler. */ }
-        }
-
-        protected void TraceNewClient(string message)
-        {
-            if (NewClientTraceUpdate) WriteNewClientTrace(message);
-        }
-
-        protected void TraceNewClientAction(string kind, object action, SimpleChar target, bool setTarget = false)
-        {
-            if (!NewClientTraceEngine) return;
-            var now = GenericProfessionHandler.Now;
-            if (_newClientActionTrace == null) _newClientActionTrace = new Dictionary<string, double>();
-            if (_newClientActionTrace.TryGetValue(kind, out var next) && now < next) return;
-            _newClientActionTrace[kind] = now + 1.0;
-            try
-            {
-                var label = action is Spell nano ? $"{nano.Name} ({nano.Id})"
-                    : action is PerkAction perk ? perk.Name
-                    : action is Item item ? item.Name : action.ToString();
-                var targetLabel = target == null ? "implicit self " + DescribeNewClientTarget(DynelManager.LocalPlayer) : DescribeNewClientTarget(target);
-                WriteNewClientTrace($"Attempt {kind} {label} on {targetLabel}, setTarget={setTarget}");
-            }
-            catch (Exception error) { TraceNewClientReadError(error); }
-        }
-
-        internal static void TraceNewClientError(Exception error, string stage)
-        {
-            if (!NewClientTraceEngine) return;
-            var now = GenericProfessionHandler.Now;
-            if (now < _nextNewClientErrorTrace) return;
-            _nextNewClientErrorTrace = now + 3.0;
-            WriteNewClientTrace($"ERROR in {stage}: {error.GetType().Name}: {error.Message}; at {error.TargetSite}");
-        }
-
-        private static void TraceNewClientReadError(Exception error)
-        {
-            WriteNewClientTrace($"Diagnostic read failed: {error.GetType().Name}: {error.Message}");
-        }
-
-        protected void TraceNewClientCombatState()
-        {
-            try
-            {
-                var lp = DynelManager.LocalPlayer;
-                WriteNewClientTrace($"Local={lp.Identity}; selected={DescribeNewClientTarget(Targeting.TargetChar)}; attacking={lp.IsAttacking}; fighting={DescribeNewClientTarget(HandlerFightingTarget)}; nativeFightId={_newClientFightingIdentity}; nativeAttacking={_newClientNativeAttacking}; targetRead={_newClientFightingStatus}; Specials={GenericProfessionHandler._settings["Specials"].AsBool()}; PetSync={GenericProfessionHandler._settings["SyncPets"] == null || GenericProfessionHandler._settings["SyncPets"].AsBool()}");
-            }
-            catch (Exception error) { TraceNewClientReadError(error); }
-        }
-
-        private void TraceNewClientScheduler(SimpleChar fightingTarget)
-        {
-            try
-            {
-                WriteNewClientTrace($"Scheduler target={DescribeNewClientTarget(fightingTarget)}; rules items={_itemRules.Count}, perks={_perkRules.Count}, nanos={_spellRules.Count}; queue={_actionQueue.Count}");
-            }
-            catch (Exception error) { TraceNewClientReadError(error); }
-        }
-
-        private void TraceNewClientPerkGates()
-        {
-            try
-            {
-                WriteNewClientTrace($"Perk gates: itemQueued={_actionQueue.Any(x => x.CombatAction is Item)}, pendingItem={Item.HasPendingUse}, delayReady={Time.AONormalTime > perkDelay}, active={PerkAction.List.Count(p => p.IsExecuting || p.IsPending)}, queuedPerks={_actionQueue.Count(x => x.CombatAction is PerkAction)}, limit={GenericProfessionHandler._settings["MAX_CONCURRENT_PERKS"].AsInt32()}");
-            }
-            catch (Exception error) { TraceNewClientReadError(error); }
-        }
-
-        private void TraceNewClientNanoGates()
-        {
-            try
-            {
-                WriteNewClientTrace($"Nano gates: delayReady={Time.AONormalTime >= Delay}, pendingCast={Spell.HasPendingCast}, movementAllowsCast={DynelManager.LocalPlayer.MovementStatePermitsCasting}");
-            }
-            catch (Exception error) { TraceNewClientReadError(error); }
-        }
-
-        protected void TraceNewClientPets(LocalPlayer localPlayer, Pet attackPet, Pet supportPet)
-        {
-            try
-            {
-                WriteNewClientTrace($"Pet gate: profession={localPlayer.Profession}, attackPresent={attackPet?.Character != null}, attackBusy={attackPet?.Character?.IsAttacking}, attackVelocity={attackPet?.Character?.Velocity}, supportPresent={supportPet?.Character != null}, supportBusy={supportPet?.Character?.IsAttacking}, supportVelocity={supportPet?.Character?.Velocity}");
-            }
-            catch (Exception error) { TraceNewClientReadError(error); }
-        }
-
-        protected static string DescribeNewClientTarget(SimpleChar target)
-        {
-            if (target == null) return "none";
-            return $"{target.Identity} (ptr=0x{target.Pointer.ToInt64():X}, self={target.Identity == DynelManager.LocalPlayer.Identity}, player={target.IsPlayer}, npc={target.IsNpc})";
-        }
-
-        private sealed class NewClientRuleCounts
-        {
-            public int PerkContext, PerkMissing, PerkUnavailable, PerkRejected, PerkQueued;
-            public int NanoContext, NanoMissing, NanoNotReady, NanoRequirements, NanoRejected, NanoAttempted;
+            _newClientFightingTarget = DynelManager.GetDynel<SimpleChar>(identity);
         }
 
         public static void Set(ProfessionHandler ProfessionHandler)
@@ -203,43 +65,25 @@ namespace ProfessionHandler.Generic.Combat
 
         protected void Update(object sender, float deltaTime)
         {
-            BeginNewClientTrace();
-            if (NewClientTraceUpdate)
-                TraceNewClient($"Update {GetType().Name}, handler={GenericProfessionHandler.HandlerVersion:0.00}");
-            if (GenericProfessionHandler.Now < GenericProfessionHandler._lastZonedTime)
-            {
-                if (NewClientTraceUpdate) TraceNewClient("Waiting for zoning/startup grace period.");
-                return;
-            }
-            if (!DynelManager.LocalPlayer.IsAlive)
-            {
-                if (NewClientTraceUpdate) TraceNewClient("Update stopped: local player is not alive.");
-                return;
-            }
-            if (Game.IsZoning)
-            {
-                if (NewClientTraceUpdate) TraceNewClient("Update stopped: zoning.");
-                return;
-            }
-            if (!GenericProfessionHandler._settings["Enable"].AsBool())
-            {
-                if (NewClientTraceUpdate) TraceNewClient("Update stopped: handler Enable setting is off.");
-                return;
-            }
+            // Clear the previous frame's target before zoning/disabled/death early returns.
+            if (NewClientEngine) _newClientFightingTarget = null;
+
+            if (GenericProfessionHandler.Now < GenericProfessionHandler._lastZonedTime) return;
+            if (!DynelManager.LocalPlayer.IsAlive) return;
+            if (Game.IsZoning) return;
+            if (!GenericProfessionHandler._settings["Enable"].AsBool()) return;
 
             GenericProfessionHandler.SkillLock.RemoveWhere(x => (int)Time.AONormalTime > x.Item2);
 
-            if (NewClientTraceEngine)
+            if (NewClientEngine)
             {
                 try { RefreshNewClientFightingTarget(); }
                 catch (Exception error)
                 {
                     _newClientFightingTarget = null;
-                    _newClientFightingStatus = "native query failed";
-                    // An unavailable query must not cause a repeated exception on every update.
+                    // Avoid a repeated exception every update if the native query is unavailable.
                     if (error is EntryPointNotFoundException || error is DllNotFoundException)
                         _newClientTargetQueryUnavailable = true;
-                    TraceNewClientError(error, "native fighting-target query");
                     GenericProfessionHandler.ErrorCatch(error);
                 }
             }
@@ -249,19 +93,10 @@ namespace ProfessionHandler.Generic.Combat
 
         protected virtual void OnUpdate(float deltaTime)
         {
-            if (NewClientTraceEngine) NewClientTraceStage = "scheduler fighting-target read";
             var fightingTarget = HandlerFightingTarget;
-            var trace = NewClientTraceUpdate ? new NewClientRuleCounts() : null;
-            if (NewClientTraceUpdate)
-                TraceNewClientScheduler(fightingTarget);
 
-            if (fightingTarget != null && fightingTarget.IsPlayer)
-            {
-                if (NewClientTraceUpdate) TraceNewClient("Scheduler stopped: fighting target rejected by the existing target policy.");
-                return;
-            }
+            if (fightingTarget != null && fightingTarget.IsPlayer) return;
 
-            if (NewClientTraceEngine) NewClientTraceStage = "item rules";
             foreach (var rule in _itemRules.OrderBy(r => r.Priority))
             {
                 if (rule.ItemConditionProcessor == null) continue;
@@ -284,9 +119,6 @@ namespace ProfessionHandler.Generic.Combat
                 }
             }
 
-            if (NewClientTraceEngine) NewClientTraceStage = "perk rules";
-            if (NewClientTraceUpdate)
-                TraceNewClientPerkGates();
             if (!_actionQueue.Any(x => x.CombatAction is Item))
             {
                 if (Time.AONormalTime > perkDelay)
@@ -299,11 +131,11 @@ namespace ProfessionHandler.Generic.Combat
                             if (_actionQueue.Any(x => x.CombatAction is Item)) break;
                             if (_actionQueue.Count(x => x.CombatAction is PerkAction) >= GenericProfessionHandler._settings["MAX_CONCURRENT_PERKS"].AsInt32()) break;
                             if (rule.PerkConditionProcessor == null) continue;
-                            if (rule.Context == RuleContext.InCombat && fightingTarget == null) { if (trace != null) trace.PerkContext++; continue; }
-                            if (rule.Context == RuleContext.OutOfCombat && fightingTarget != null) { if (trace != null) trace.PerkContext++; continue; }
+                            if (rule.Context == RuleContext.InCombat && fightingTarget == null) continue;
+                            if (rule.Context == RuleContext.OutOfCombat && fightingTarget != null) continue;
 
-                            if (!PerkAction.Find(rule.PerkHash, out PerkAction perk)) { if (trace != null) trace.PerkMissing++; continue; }
-                            if (perk.IsPending || perk.IsExecuting || !perk.IsAvailable) { if (trace != null) trace.PerkUnavailable++; continue; }
+                            if (!PerkAction.Find(rule.PerkHash, out PerkAction perk)) continue;
+                            if (perk.IsPending || perk.IsExecuting || !perk.IsAvailable) continue;
                             if (_actionQueue.Any(x => x.CombatAction is PerkAction action && action == perk)) continue;
 
                             (SimpleChar Target, bool ShouldSetTarget) actionTarget = (null, false);
@@ -313,18 +145,13 @@ namespace ProfessionHandler.Generic.Combat
                                 var perkDelayValue = perk.AttackDelay > 0  ? perk.AttackDelay : 5f;
 
                                 _actionQueue.Enqueue(new CombatActionQueueItem(perk, actionTarget.Target, actionTarget.ShouldSetTarget, perkDelayValue));
-                                if (trace != null) trace.PerkQueued++;
                                 perkDelay = Time.AONormalTime + 0.5;
                             }
-                            else if (trace != null) trace.PerkRejected++;
                         }
                     }
                 }
             }
 
-            if (NewClientTraceEngine) NewClientTraceStage = "nano and action-queue gates";
-            if (NewClientTraceUpdate)
-                TraceNewClientNanoGates();
             if (Time.AONormalTime >= Delay)
             {
                 if (!Spell.HasPendingCast && DynelManager.LocalPlayer.MovementStatePermitsCasting)
@@ -333,26 +160,20 @@ namespace ProfessionHandler.Generic.Combat
                     {
                         if (spellRule.SpellConditionProcessor == null) continue;
                         if (spellRule.SpellGroup == null) continue;
-                        if (spellRule.Context == RuleContext.InCombat && fightingTarget == null) { if (trace != null) trace.NanoContext++; continue; }
-                        if (spellRule.Context == RuleContext.OutOfCombat && fightingTarget != null) { if (trace != null) trace.NanoContext++; continue; }
+                        if (spellRule.Context == RuleContext.InCombat && fightingTarget == null) continue;
+                        if (spellRule.Context == RuleContext.OutOfCombat && fightingTarget != null) continue;
 
                         foreach (int spellId in spellRule.SpellGroup)
                         {
-                            if (!Spell.Find(spellId, out Spell curSpell)) { if (trace != null) trace.NanoMissing++; continue; }
-                            if (!curSpell.IsReady) { if (trace != null) trace.NanoNotReady++; continue; }
-                            if (!curSpell.MeetsSelfUseReqs()) { if (trace != null) trace.NanoRequirements++; continue; }
+                            if (!Spell.Find(spellId, out Spell curSpell)) continue;
+                            if (!curSpell.IsReady) continue;
+                            if (!curSpell.MeetsSelfUseReqs()) continue;
                             if (Spell.HasPendingCast) break;
 
                             (SimpleChar Target, bool ShouldSetTarget) actionTarget = (null, false);
 
                             if (spellRule.SpellConditionProcessor.Invoke(curSpell, fightingTarget, ref actionTarget))
-                            {
-                                if (trace != null) trace.NanoAttempted++;
-                                if (NewClientTraceEngine)
-                                    TraceNewClientAction("nano", curSpell, actionTarget.Target, actionTarget.ShouldSetTarget);
                                 curSpell.Cast(actionTarget.Target, actionTarget.ShouldSetTarget);
-                            }
-                            else if (trace != null) trace.NanoRejected++;
                         }
                     }
                 }
@@ -373,8 +194,6 @@ namespace ProfessionHandler.Generic.Combat
                                 {
                                     if (!Item.HasPendingUse && !PerkAction.List.Any(p => p.IsExecuting))
                                     {
-                                        if (NewClientTraceEngine)
-                                            TraceNewClientAction("item", item, queAction.Target, queAction.ShouldSetTarget);
                                         item.Use(queAction.Target, queAction.ShouldSetTarget);
 
                                         var lockValue = item.UseModifiers.FirstOrDefault(m => m.Function == SpellFunction.LockSkill) ?.Properties.TryGetValue(SpellPropertyOperator.Value, out var v) == true ? v : (int?)null;
@@ -395,8 +214,6 @@ namespace ProfessionHandler.Generic.Combat
                                         {
                                             if (perk.IsAvailable && !perk.IsExecuting && !perk.IsPending && !Item.HasPendingUse)
                                             {
-                                                if (NewClientTraceEngine)
-                                                    TraceNewClientAction("perk", perk, queAction.Target, queAction.ShouldSetTarget);
                                                 perk.Use(queAction.Target, queAction.ShouldSetTarget);
 
                                                 queAction.Used = true;
@@ -413,11 +230,6 @@ namespace ProfessionHandler.Generic.Combat
                 }
 
                 Delay = Time.AONormalTime + 0.15;
-            }
-            if (trace != null)
-            {
-                TraceNewClient($"Perk rules this update: contextSkipped={trace.PerkContext}, missing={trace.PerkMissing}, unavailable={trace.PerkUnavailable}, conditionFalse={trace.PerkRejected}, queued={trace.PerkQueued}");
-                TraceNewClient($"Nano rules this update: contextSkipped={trace.NanoContext}, missing={trace.NanoMissing}, notReady={trace.NanoNotReady}, selfReqsFailed={trace.NanoRequirements}, conditionFalse={trace.NanoRejected}, attempted={trace.NanoAttempted}");
             }
         }
 
